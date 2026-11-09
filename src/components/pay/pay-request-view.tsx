@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PayButton } from "@/components/pay/pay-button";
+import { PaymentShare } from "@/components/pay/payment-share";
 import { formatAmount } from "@/lib/treasury/amounts";
 import { getToken } from "@/lib/treasury/tokens";
 import { submitWithRetry } from "@/lib/treasury/submit";
@@ -114,9 +115,17 @@ export function PayRequestView({ request }: { request: PaymentRequest }) {
             </Button>
           </div>
         ) : isPayee ? (
-          <p className="text-sm text-muted-foreground">
-            This is your own request. Share the link so someone can pay you.
-          </p>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              This is your own request. Share the link so someone can pay you.
+            </p>
+            <PaymentShare
+              path={`/pay/${request.id}`}
+              title={`Pay ${display} ${request.token_symbol}`}
+              amount={display}
+              tokenSymbol={request.token_symbol}
+            />
+          </div>
         ) : done ? (
           <p className="text-sm text-primary">
             Payment verified and recorded. Thank you.

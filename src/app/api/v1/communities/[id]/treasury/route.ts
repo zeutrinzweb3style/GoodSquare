@@ -151,6 +151,7 @@ export async function PATCH(
             ? undefined
             : parsed.data.address || null,
         isActive: parsed.data.isActive,
+        approvalThreshold: parsed.data.approvalThreshold,
       },
       session.sub,
     );

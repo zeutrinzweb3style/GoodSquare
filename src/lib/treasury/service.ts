@@ -7,11 +7,22 @@ import {
 } from "@/lib/treasury/chain";
 import { payableTokens, getToken } from "@/lib/treasury/tokens";
 import { canExecute, canTransition } from "@/lib/treasury/spending";
+import {
+  approvalProgress,
+  canApprove,
+  canRevokeApproval,
+  normalizeSigner,
+  thresholdReached,
+  type ApprovalRecord,
+} from "@/lib/treasury/approvals";
+import { notify } from "@/lib/notifications/service";
 import { verifyTransfer } from "@/lib/treasury/verify";
 import type {
   SpendingStatus,
   TokenBalance,
   Treasury,
+  TreasurySigner,
+  TreasurySpendingApproval,
   TreasurySpendingProposal,
   TreasuryTransaction,
 } from "@/lib/types";
@@ -80,7 +91,12 @@ export async function createTreasury(input: {
 
 export async function updateTreasury(
   treasury: Treasury,
-  patch: { name?: string; address?: string | null; isActive?: boolean },
+  patch: {
+    name?: string;
+    address?: string | null;
+    isActive?: boolean;
+    approvalThreshold?: number;
+  },
   actor: string,
 ): Promise<Treasury> {
   const supabase = createServiceRoleClient();
@@ -90,6 +106,9 @@ export async function updateTreasury(
     update.address = patch.address ? normalizeAddress(patch.address) : null;
   }
   if (patch.isActive !== undefined) update.is_active = patch.isActive;
+  if (patch.approvalThreshold !== undefined) {
+    update.approval_threshold = patch.approvalThreshold;
+  }
 
   const { data, error } = await supabase
     .from("treasuries")
@@ -110,6 +129,196 @@ export async function updateTreasury(
   });
 
   return data;
+}
+
+// ---------------------------------------------------------------------------
+// Signers and approvals
+// ---------------------------------------------------------------------------
+
+export async function listTreasurySigners(
+  treasuryId: string,
+): Promise<TreasurySigner[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("treasury_signers")
+    .select("*")
+    .eq("treasury_id", treasuryId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function addTreasurySigner(input: {
+  treasury: Treasury;
+  address: string;
+  actor: string;
+}): Promise<TreasurySigner> {
+  const supabase = createServiceRoleClient();
+  const address = normalizeSigner(input.address);
+  const { data, error } = await supabase
+    .from("treasury_signers")
+    .insert({
+      treasury_id: input.treasury.id,
+      address,
+      added_by: normalizeAddress(input.actor),
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    if (error.code === "23505") {
+      throw new SpendingError("That wallet is already a signer", "conflict");
+    }
+    throw error;
+  }
+
+  await writeAuditLog({
+    actor: normalizeAddress(input.actor),
+    action: "treasury.signer.add",
+    entityType: "treasury",
+    entityId: input.treasury.id,
+    communityId: input.treasury.community_id,
+    metadata: { address },
+  });
+
+  return data;
+}
+
+export async function removeTreasurySigner(input: {
+  treasury: Treasury;
+  address: string;
+  actor: string;
+}): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const address = normalizeSigner(input.address);
+  const { error } = await supabase
+    .from("treasury_signers")
+    .delete()
+    .eq("treasury_id", input.treasury.id)
+    .eq("address", address);
+
+  if (error) throw error;
+
+  await writeAuditLog({
+    actor: normalizeAddress(input.actor),
+    action: "treasury.signer.remove",
+    entityType: "treasury",
+    entityId: input.treasury.id,
+    communityId: input.treasury.community_id,
+    metadata: { address },
+  });
+}
+
+export async function listSpendingApprovals(
+  proposalId: string,
+): Promise<TreasurySpendingApproval[]> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("treasury_spending_approvals")
+    .select("*")
+    .eq("proposal_id", proposalId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * Record a signer's approval of a pending proposal. When the treasury has named
+ * signers, reaching the threshold flips the proposal to `approved`; otherwise
+ * this is a plain approval like before. No funds move here.
+ */
+export async function approveSpendingProposal(input: {
+  proposal: TreasurySpendingProposal;
+  treasury: Treasury;
+  actor: string;
+}): Promise<TreasurySpendingProposal> {
+  const { proposal, treasury, actor } = input;
+  const supabase = createServiceRoleClient();
+  const approver = normalizeAddress(actor);
+
+  const signers = (await listTreasurySigners(treasury.id)).map(
+    (signer) => signer.address,
+  );
+  const approvals = await listSpendingApprovals(proposal.id);
+
+  const check = canApprove({
+    proposalStatus: proposal.status,
+    signers,
+    approvals: approvals as ApprovalRecord[],
+    approver,
+  });
+  if (!check.ok) {
+    throw new SpendingError(check.reason ?? "Cannot approve", "invalid");
+  }
+
+  const { error: insertError } = await supabase
+    .from("treasury_spending_approvals")
+    .insert({ proposal_id: proposal.id, approver });
+  if (insertError && insertError.code !== "23505") throw insertError;
+
+  const all = await listSpendingApprovals(proposal.id);
+  const progress = approvalProgress({
+    signers,
+    approvals: all as ApprovalRecord[],
+    threshold: treasury.approval_threshold,
+  });
+
+  await writeAuditLog({
+    actor: approver,
+    action: "treasury.spending.approve",
+    entityType: "treasury_spending_proposal",
+    entityId: proposal.id,
+    communityId: proposal.community_id,
+    metadata: { approved: progress.approved, required: progress.required },
+  });
+
+  const reached = thresholdReached({
+    signers,
+    approvals: all as ApprovalRecord[],
+    threshold: treasury.approval_threshold,
+  });
+
+  if (reached) {
+    return reviewSpendingProposal(proposal, "approved", actor);
+  }
+  return proposal;
+}
+
+/** Withdraw the caller's own approval from a pending proposal. */
+export async function revokeSpendingApproval(input: {
+  proposal: TreasurySpendingProposal;
+  actor: string;
+}): Promise<void> {
+  const { proposal, actor } = input;
+  const approver = normalizeAddress(actor);
+  const approvals = await listSpendingApprovals(proposal.id);
+
+  const check = canRevokeApproval({
+    proposalStatus: proposal.status,
+    approvals: approvals as ApprovalRecord[],
+    approver,
+  });
+  if (!check.ok) {
+    throw new SpendingError(check.reason ?? "Cannot revoke", "invalid");
+  }
+
+  const supabase = createServiceRoleClient();
+  const { error } = await supabase
+    .from("treasury_spending_approvals")
+    .delete()
+    .eq("proposal_id", proposal.id)
+    .eq("approver", approver);
+  if (error) throw error;
+
+  await writeAuditLog({
+    actor: approver,
+    action: "treasury.spending.revoke-approval",
+    entityType: "treasury_spending_proposal",
+    entityId: proposal.id,
+    communityId: proposal.community_id,
+  });
 }
 
 export async function listTreasuryTransactions(
@@ -283,6 +492,18 @@ export async function reviewSpendingProposal(
     communityId: proposal.community_id,
     metadata: { decision },
   });
+
+  if (data.proposed_by !== normalizeAddress(actor)) {
+    await notify({
+      address: data.proposed_by,
+      type: `treasury.spending.${decision}`,
+      title: `Spending proposal ${decision}`,
+      body: data.title,
+      entityType: "treasury_spending_proposal",
+      entityId: data.id,
+      communityId: proposal.community_id,
+    });
+  }
 
   return data;
 }

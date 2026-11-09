@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatAmount } from "@/lib/treasury/amounts";
 import { getToken, payableTokens } from "@/lib/treasury/tokens";
+import { QrCode } from "@/components/pay/qr-code";
 import type { PaymentRequest } from "@/lib/types";
 
 export function CreatePaymentRequestForm({
@@ -141,6 +142,13 @@ export function CreatePaymentRequestForm({
             >
               /pay/{created.id}
             </Link>
+            <div className="mt-4">
+              <QrCode
+                value={`/pay/${created.id}`}
+                size={140}
+                label="Scan to pay"
+              />
+            </div>
           </div>
         ) : null}
       </CardContent>

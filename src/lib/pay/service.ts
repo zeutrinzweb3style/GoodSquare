@@ -3,6 +3,7 @@ import { normalizeAddress } from "@/lib/auth/wallet";
 import { writeAuditLog } from "@/lib/community/service";
 import { canFulfillRequest } from "@/lib/pay/status";
 import { verifyTransfer } from "@/lib/treasury/verify";
+import { notify } from "@/lib/notifications/service";
 import type { Payment, PaymentRequest } from "@/lib/types";
 
 export async function getPaymentRequestById(
@@ -241,6 +242,23 @@ export async function recordPayment(input: {
       requestId: input.paymentRequest?.id ?? null,
     },
   });
+
+  // Tell the payee their request was paid, unless they paid it themselves.
+  if (
+    input.paymentRequest &&
+    normalizeAddress(input.paymentRequest.payee_address) !==
+      normalizeAddress(input.payer)
+  ) {
+    await notify({
+      address: input.paymentRequest.payee_address,
+      type: "payment.received",
+      title: "Payment received",
+      body: `Your payment request was paid in ${input.tokenSymbol}.`,
+      entityType: "payment_request",
+      entityId: input.paymentRequest.id,
+      communityId: data.community_id,
+    });
+  }
 
   return data;
 }

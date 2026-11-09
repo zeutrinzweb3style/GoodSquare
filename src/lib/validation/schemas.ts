@@ -205,6 +205,7 @@ export const updateTreasurySchema = z.object({
   name: z.string().trim().min(1).max(80).optional(),
   address: walletAddress.optional().or(z.literal("")),
   isActive: z.boolean().optional(),
+  approvalThreshold: z.coerce.number().int().min(1).max(20).optional(),
 });
 
 export const createSpendingProposalSchema = z.object({
@@ -218,6 +219,34 @@ export const createSpendingProposalSchema = z.object({
 
 export const reviewSpendingProposalSchema = z.object({
   decision: z.enum(["approved", "rejected", "cancelled"]),
+});
+
+export const addTreasurySignerSchema = z.object({
+  address: walletAddress,
+});
+
+export const updateApprovalThresholdSchema = z.object({
+  approvalThreshold: z.coerce.number().int().min(1).max(20),
+});
+
+const rewardRecipient = z.object({
+  address: walletAddress,
+  amount: amountString,
+});
+
+export const createRewardDistributionSchema = z.object({
+  title: z.string().trim().min(3).max(140),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  tokenSymbol,
+  recipients: z.array(rewardRecipient).min(1).max(200),
+});
+
+export const updateRewardDistributionSchema = z.object({
+  status: z.enum(["active", "cancelled", "completed"]),
+});
+
+export const payRewardRecipientSchema = z.object({
+  txHash,
 });
 
 export const executeSpendingProposalSchema = z.object({

@@ -89,6 +89,20 @@ npx next typegen # regenerate route types after adding pages/routes
   wallet-level requests); `status` open|paid|cancelled.
 - `payments` — verified wallet-to-wallet transfers; unique `(chain_id, tx_hash)`.
 
+### Phase 4 completion (supabase/migrations/0005_phase4_financial_completion.sql)
+- `treasuries.approval_threshold` — how many distinct signers must approve a
+  spending proposal when signers exist (default 1).
+- `treasury_signers` — wallets authorized to approve spending; unique
+  `(treasury_id, address)`. Signers never gain custody.
+- `treasury_spending_approvals` — one row per signer approval; unique
+  `(proposal_id, approver)`. Distinct signers are counted.
+- `reward_distributions` — a plan to pay several contributors in one token;
+  `status` draft|active|completed|cancelled.
+- `reward_recipients` — one row per payee; unique `(distribution_id, address)`;
+  `status` pending|paid|skipped. `treasury_transactions.reward_recipient_id`
+  links a payout to its transaction, and `source` may be `reward`.
+- `notifications` — in-app notifications; private to the recipient.
+
 Amounts are stored as **text holding a base-unit integer** (e.g. `"1500000"`
 for 1.5 USDC at 6 decimals) so no precision is lost through JSON.
 
@@ -157,7 +171,18 @@ Nothing is stubbed with 501 any more. `/api/v1/payments` is live (Square Pay).
   `src/lib/treasury/amounts.ts`; the database stores `text` and never does
   arithmetic on amounts.
 - Pure rules live in `src/lib/treasury/spending.ts`, `src/lib/pay/status.ts`,
-  `src/lib/treasury/verification.ts`, `src/lib/treasury/amounts.ts`, and
+  `src/lib/treasury/verification.ts`, `src/lib/treasury/amounts.ts`,
+  `src/lib/treasury/approvals.ts`, `src/lib/rewards/rules.ts`, and
   `src/lib/treasury/tokens.ts`; keep them I/O-free so the tests in
-  `tests/treasury.test.ts` can exercise them directly (these modules must not
-  import other `src/` modules at runtime).
+  `tests/treasury.test.ts` and `tests/rewards.test.ts` can exercise them
+  directly (these modules must not import other `src/` modules at runtime).
+- **Multisig approvals never move funds either.** When a treasury names signers,
+  `approval_threshold` distinct signers must approve a proposal before it turns
+  `approved`. `src/lib/treasury/approvals.ts` holds the pure rules; only distinct
+  signers count and a signer cannot approve twice.
+- **Rewards follow the same non-custodial rule.** A `reward_distributions` row is
+  a plan; each `reward_recipients` payout is only marked `paid` after
+  `verifyTransfer` confirms the signer's receipt, and the distribution completes
+  when no recipient is pending. Pure rules live in `src/lib/rewards/rules.ts`.
+- **Notifications are a courtesy.** `notify` never fails the action it
+  describes, and notifications never gate an action.

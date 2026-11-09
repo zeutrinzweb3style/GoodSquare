@@ -180,6 +180,7 @@ export interface Treasury {
   address: string | null;
   chain_id: number;
   is_active: boolean;
+  approval_threshold: number;
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -213,7 +214,7 @@ export interface TreasurySpendingProposal {
 }
 
 export type TreasuryTxDirection = "in" | "out";
-export type TreasuryTxSource = "spending" | "manual";
+export type TreasuryTxSource = "spending" | "manual" | "reward";
 
 export interface TreasuryTransaction {
   id: string;
@@ -276,4 +277,63 @@ export interface TokenBalance {
   decimals: number;
   /** Base-unit balance as a decimal string, or null when it could not be read. */
   balance: string | null;
+}
+
+export interface TreasurySigner {
+  id: string;
+  treasury_id: string;
+  address: string;
+  added_by: string;
+  created_at: string;
+}
+
+export interface TreasurySpendingApproval {
+  id: string;
+  proposal_id: string;
+  approver: string;
+  created_at: string;
+}
+
+export type RewardStatus = "draft" | "active" | "completed" | "cancelled";
+export type RewardRecipientStatus = "pending" | "paid" | "skipped";
+
+export interface RewardDistribution {
+  id: string;
+  treasury_id: string;
+  community_id: string;
+  title: string;
+  description: string | null;
+  token_symbol: string;
+  status: RewardStatus;
+  created_by: string;
+  activated_at: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RewardRecipient {
+  id: string;
+  distribution_id: string;
+  address: string;
+  /** Amount in base units, as a decimal string. */
+  amount: string;
+  status: RewardRecipientStatus;
+  tx_hash: string | null;
+  paid_at: string | null;
+  recorded_by: string | null;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  address: string;
+  type: string;
+  title: string;
+  body: string | null;
+  entity_type: string | null;
+  entity_id: string | null;
+  community_id: string | null;
+  read_at: string | null;
+  created_at: string;
 }
