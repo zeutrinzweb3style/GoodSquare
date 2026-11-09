@@ -337,3 +337,40 @@ export interface Notification {
   read_at: string | null;
   created_at: string;
 }
+
+export interface ApiKey {
+  id: string;
+  owner_address: string;
+  name: string;
+  key_prefix: string;
+  scopes: string[];
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface WebhookEndpoint {
+  id: string;
+  owner_address: string;
+  community_id: string | null;
+  url: string;
+  events: string[];
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type WebhookDeliveryStatus = "pending" | "delivered" | "failed";
+
+export interface WebhookDelivery {
+  id: string;
+  endpoint_id: string;
+  event: string;
+  status: WebhookDeliveryStatus;
+  attempts: number;
+  response_status: number | null;
+  error: string | null;
+  next_attempt_at: string | null;
+  delivered_at: string | null;
+  created_at: string;
+}

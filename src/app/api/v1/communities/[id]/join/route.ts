@@ -7,6 +7,7 @@ import {
   writeAuditLog,
 } from "@/lib/community/service";
 import { normalizeAddress } from "@/lib/auth/wallet";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import {
   conflict,
   forbidden,
@@ -64,6 +65,16 @@ export async function POST(
       entityType: "community_member",
       entityId: data?.id ?? null,
       communityId: community.id,
+    });
+
+    await emitWebhookEvent({
+      event: "member.joined",
+      communityId: community.id,
+      data: {
+        communityId: community.id,
+        address,
+        role: "member",
+      },
     });
 
     return ok({ membership: data });

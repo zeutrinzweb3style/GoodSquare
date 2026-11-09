@@ -4,6 +4,7 @@ import { writeAuditLog } from "@/lib/community/service";
 import { canFulfillRequest } from "@/lib/pay/status";
 import { verifyTransfer } from "@/lib/treasury/verify";
 import { notify } from "@/lib/notifications/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import type { Payment, PaymentRequest } from "@/lib/types";
 
 export async function getPaymentRequestById(
@@ -259,6 +260,26 @@ export async function recordPayment(input: {
       communityId: data.community_id,
     });
   }
+
+  // The payee's own endpoints hear about payments to them; community-scoped
+  // endpoints are covered by the community id when the payment belongs to one.
+  await emitWebhookEvent({
+    event: "payment.received",
+    communityId: data.community_id,
+    address: input.paymentRequest?.payee_address ?? null,
+    data: {
+      communityId: data.community_id,
+      paymentId: data.id,
+      paymentRequestId: input.paymentRequest?.id ?? null,
+      payer: normalizeAddress(input.payer),
+      payee: input.paymentRequest
+        ? normalizeAddress(input.paymentRequest.payee_address)
+        : null,
+      tokenSymbol: input.tokenSymbol,
+      amount: input.amount,
+      txHash: input.txHash,
+    },
+  });
 
   return data;
 }

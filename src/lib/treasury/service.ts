@@ -16,6 +16,7 @@ import {
   type ApprovalRecord,
 } from "@/lib/treasury/approvals";
 import { notify } from "@/lib/notifications/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import { verifyTransfer } from "@/lib/treasury/verify";
 import type {
   SpendingStatus,
@@ -505,6 +506,21 @@ export async function reviewSpendingProposal(
     });
   }
 
+  if (decision === "approved") {
+    await emitWebhookEvent({
+      event: "treasury.spending.approved",
+      communityId: proposal.community_id,
+      data: {
+        communityId: proposal.community_id,
+        proposalId: data.id,
+        title: data.title,
+        tokenSymbol: data.token_symbol,
+        amount: data.amount,
+        recipient: data.recipient,
+      },
+    });
+  }
+
   return data;
 }
 
@@ -602,6 +618,20 @@ export async function executeSpendingProposal(
     entityId: proposal.id,
     communityId: proposal.community_id,
     metadata: { txHash, token: proposal.token_symbol, amount: proposal.amount },
+  });
+
+  await emitWebhookEvent({
+    event: "treasury.spending.executed",
+    communityId: proposal.community_id,
+    data: {
+      communityId: proposal.community_id,
+      proposalId: proposal.id,
+      title: proposal.title,
+      tokenSymbol: proposal.token_symbol,
+      amount: proposal.amount,
+      recipient: proposal.recipient,
+      txHash,
+    },
   });
 
   return data;

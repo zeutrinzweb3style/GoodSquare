@@ -12,10 +12,11 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What this is
 Open-source, modular community infrastructure on **Celo**. Phase 1 (Foundation),
-Phase 2 (Participation), Phase 3 (Governance), and Phase 4 (Financial
-infrastructure) are implemented here: Square ID, communities, membership, roles,
-Square Quest, Square Reputation, Square Governance, Square Treasury, Square Pay,
-and a versioned REST API.
+Phase 2 (Participation), Phase 3 (Governance), Phase 4 (Financial
+infrastructure), and Phase 5 (Developer ecosystem) are implemented here: Square
+ID, communities, membership, roles, Square Quest, Square Reputation, Square
+Governance, Square Treasury, Square Pay, community rewards, notifications, API
+keys, webhooks, and a versioned REST API.
 
 ## Golden rules
 - **No native token, no speculative tokenomics.** EXP is a reputation metric
@@ -103,6 +104,14 @@ npx next typegen # regenerate route types after adding pages/routes
   links a payout to its transaction, and `source` may be `reward`.
 - `notifications` — in-app notifications; private to the recipient.
 
+### Phase 5 (supabase/migrations/0006_phase5_developer.sql)
+- `api_keys` — bearer credentials for integrations. Only `key_hash` (SHA-256)
+  and a short `key_prefix` are stored; the plaintext key is shown once.
+- `webhook_endpoints` — a subscribed URL, its signing secret, and the events it
+  wants. `community_id` null means the owner's events across communities.
+- `webhook_deliveries` — one row per attempted delivery, with the exact signed
+  payload, attempt count, and next retry time.
+
 Amounts are stored as **text holding a base-unit integer** (e.g. `"1500000"`
 for 1.5 USDC at 6 decimals) so no precision is lost through JSON.
 
@@ -111,6 +120,11 @@ for 1.5 USDC at 6 decimals) so no precision is lost through JSON.
 /api/auth/verify` verifies with viem, consumes the nonce, sets an httpOnly
 `gs_session` cookie signed with `SESSION_SECRET`. A profile row is bootstrapped
 on first login.
+
+`getSession()` also accepts an API key: a request with `Authorization: Bearer
+<api key>` is resolved to its owner before the cookie is consulted. API keys are
+verified with a constant-time comparison of their SHA-256 hash, so a leaked
+database row is not usable.
 
 ## Conventions
 - Wallet addresses are stored **lowercase**; use `normalizeAddress` /
@@ -123,7 +137,8 @@ on first login.
   shadcn CLI dependency).
 
 ## Not implemented yet
-Nothing is stubbed with 501 any more. `/api/v1/payments` is live (Square Pay).
+Nothing is stubbed with 501 any more. `/api/v1/payments` is live (Square Pay),
+and Phase 5 added the developer surface (API keys, rate limiting, webhooks, SDK).
 
 ## Reputation rules (do not break these)
 - EXP is **append-only** in `reputation_events`. Never update a total in place;
@@ -186,3 +201,27 @@ Nothing is stubbed with 501 any more. `/api/v1/payments` is live (Square Pay).
   when no recipient is pending. Pure rules live in `src/lib/rewards/rules.ts`.
 - **Notifications are a courtesy.** `notify` never fails the action it
   describes, and notifications never gate an action.
+
+## Developer ecosystem rules (do not break these)
+- **Never store or log a plaintext API key.** Only the SHA-256 hash and a short
+  prefix go in the database. Compare with `apiKeyMatches` (constant-time). The
+  full key is returned exactly once, at creation.
+- **Rate limiting is per-instance and best-effort.** `src/lib/developer/rate-limit.ts`
+  is pure; `rate-limit-store.ts` keeps timestamps in memory. Keep the pure
+  module I/O-free so `tests/developer.test.ts` can exercise it. A shared store
+  can replace the in-memory one without changing call sites.
+- **Webhook emission never fails the action that triggered it.** `emitWebhookEvent`
+  swallows its own errors and queues failed deliveries for retry. Never `await`
+  a webhook in a way that can break a state change.
+- **Webhook URLs are HTTPS only.** `isAllowedWebhookUrl` rejects localhost,
+  `.internal`/`.local` hosts, and private IPv4 literals to blunt SSRF.
+- **Signatures are HMAC-SHA256 over `<t>.<raw body>`.** The receiver must verify
+  against the raw bytes before parsing JSON. `signPayload`/`verifySignature` are
+  pure; the SDK's `verifyWebhookSignature` mirrors them with the Web Crypto API.
+- **The retry queue is secret-gated.** `POST /api/v1/webhooks/dispatch` is
+  disabled unless `CRON_SECRET` is set, and then requires it.
+- **The SDK is a standalone package.** It lives in `sdk/` with its own
+  `package.json` and `tsconfig.json`, is excluded from the root tsconfig and
+  ESLint, and must not import from `src/`. Keep it dependency-free.
+- **Docs live in `docs/api.md`.** Update it when routes, events, or error codes
+  change.

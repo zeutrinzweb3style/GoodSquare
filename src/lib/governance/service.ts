@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { normalizeAddress } from "@/lib/auth/wallet";
 import { writeAuditLog } from "@/lib/community/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import { hasAtLeastRole, type CommunityRole } from "@/lib/permissions";
 import {
   isVotingOpen,
@@ -207,6 +208,17 @@ export async function createProposal(input: {
     metadata: { title: input.title, status: input.status },
   });
 
+  await emitWebhookEvent({
+    event: "proposal.created",
+    communityId: input.communityId,
+    data: {
+      communityId: input.communityId,
+      proposalId: data.id,
+      title: input.title,
+      status: input.status,
+    },
+  });
+
   return data;
 }
 
@@ -233,6 +245,19 @@ export async function updateProposalStatus(
     communityId: proposal.community_id,
     metadata: { from: proposal.status, to: status },
   });
+
+  if (status === "closed") {
+    await emitWebhookEvent({
+      event: "proposal.closed",
+      communityId: proposal.community_id,
+      data: {
+        communityId: proposal.community_id,
+        proposalId: proposal.id,
+        title: proposal.title,
+        status,
+      },
+    });
+  }
 
   return data;
 }
@@ -294,6 +319,17 @@ export async function castVote(input: {
     entityId: proposal.id,
     communityId: proposal.community_id,
     metadata: { choice: input.choice },
+  });
+
+  await emitWebhookEvent({
+    event: "vote.cast",
+    communityId: proposal.community_id,
+    data: {
+      communityId: proposal.community_id,
+      proposalId: proposal.id,
+      address: normalized,
+      choice: input.choice,
+    },
   });
 
   return data;

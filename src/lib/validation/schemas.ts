@@ -277,6 +277,26 @@ export const recordPaymentSchema = z.object({
   txHash,
 });
 
+export const createApiKeySchema = z.object({
+  name: z.string().trim().min(1).max(64),
+  scopes: z.array(z.string().trim().min(1).max(64)).max(50).optional(),
+  environment: z.enum(["live", "test"]).optional(),
+});
+
+export const webhookEvents = z.array(z.string().trim().min(1).max(64)).max(50);
+
+export const createWebhookEndpointSchema = z.object({
+  url: z.string().trim().url().max(2048),
+  events: webhookEvents.min(1),
+  communityId: z.string().uuid().optional().or(z.literal("")),
+});
+
+export const updateWebhookEndpointSchema = z.object({
+  url: z.string().trim().url().max(2048).optional(),
+  events: webhookEvents.optional(),
+  active: z.boolean().optional(),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateCommunityInput = z.infer<typeof createCommunitySchema>;
 export type CreateQuestInput = z.infer<typeof createQuestSchema>;
