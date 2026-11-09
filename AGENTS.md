@@ -12,9 +12,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What this is
 Open-source, modular community infrastructure on **Celo**. Phase 1 (Foundation),
-Phase 2 (Participation), and Phase 3 (Governance) are implemented here: Square
-ID, communities, membership, roles, Square Quest, Square Reputation, Square
-Governance, and a versioned REST API. Treasury/Pay is a later phase.
+Phase 2 (Participation), Phase 3 (Governance), and Phase 4 (Financial
+infrastructure) are implemented here: Square ID, communities, membership, roles,
+Square Quest, Square Reputation, Square Governance, Square Treasury, Square Pay,
+and a versioned REST API.
 
 ## Golden rules
 - **No native token, no speculative tokenomics.** EXP is a reputation metric
@@ -77,6 +78,20 @@ npx next typegen # regenerate route types after adding pages/routes
   for|against|abstain; `weight` fixed at 1 (reserved for future weighting).
 - `proposal_results` — view deriving per-proposal tallies (never stored).
 
+### Phase 4 (supabase/migrations/0004_phase4_financial.sql)
+- `treasuries` — one public reference per community (`address`, `chain_id`,
+  `is_active`). Good Square has no authority over the address.
+- `treasury_spending_proposals` — off-chain records of intent; approving does
+  not move funds. `status` pending|approved|rejected|executed|cancelled.
+- `treasury_transactions` — verified on-chain movements in/out; unique
+  `(chain_id, tx_hash, token_symbol, from_address, to_address)`.
+- `payment_requests` — Square Pay requests (`community_id` nullable for
+  wallet-level requests); `status` open|paid|cancelled.
+- `payments` — verified wallet-to-wallet transfers; unique `(chain_id, tx_hash)`.
+
+Amounts are stored as **text holding a base-unit integer** (e.g. `"1500000"`
+for 1.5 USDC at 6 decimals) so no precision is lost through JSON.
+
 ## Auth flow
 `POST /api/auth/nonce` -> wallet signs the returned message -> `POST
 /api/auth/verify` verifies with viem, consumes the nonce, sets an httpOnly
@@ -93,8 +108,8 @@ on first login.
 - UI primitives live in `src/components/ui/` (hand-rolled, accessible, no
   shadcn CLI dependency).
 
-## Not implemented yet (return 501 explicitly)
-`/api/v1/payments` (Phase 4). Do not return mock data for it.
+## Not implemented yet
+Nothing is stubbed with 501 any more. `/api/v1/payments` is live (Square Pay).
 
 ## Reputation rules (do not break these)
 - EXP is **append-only** in `reputation_events`. Never update a total in place;
@@ -120,3 +135,29 @@ on first login.
   tests in `tests/governance.test.ts` can exercise them directly.
 - Advanced (reputation- or token-weighted) voting must not be enabled until its
   eligibility and security rules are clearly defined.
+
+## Treasury & Pay rules (do not break these)
+- **Non-custodial, always.** The backend never holds a key and never sends a
+  transaction. Every on-chain movement is signed by a user's own wallet; the
+  server only verifies a receipt and records it. There is no server-side send
+  path — do not add one.
+- **Approve ≠ pay.** Approving a spending proposal changes a status only. A
+  signer must still send the transaction from the treasury wallet and submit the
+  hash, which `verifyTransfer` checks against the approved terms before the
+  proposal is marked `executed`.
+- **Verify before recording.** Never trust a client-supplied hash. `verifyTransfer`
+  (`src/lib/treasury/verify.ts`) must confirm a successful receipt, the token
+  contract, sender, recipient, and exact amount. A payment is rejected unless
+  every field matches.
+- **Tokens are a static allowlist.** Only tokens in `src/lib/treasury/tokens.ts`
+  can be displayed, requested, or paid. Never accept a token address from client
+  input. Each address and its decimals were verified on-chain before commit.
+- **Amounts are exact.** Store and transport amounts as **text base-unit
+  integers**, never floats. Convert with `parseAmount`/`formatAmount` in
+  `src/lib/treasury/amounts.ts`; the database stores `text` and never does
+  arithmetic on amounts.
+- Pure rules live in `src/lib/treasury/spending.ts`, `src/lib/pay/status.ts`,
+  `src/lib/treasury/verification.ts`, `src/lib/treasury/amounts.ts`, and
+  `src/lib/treasury/tokens.ts`; keep them I/O-free so the tests in
+  `tests/treasury.test.ts` can exercise them directly (these modules must not
+  import other `src/` modules at runtime).
