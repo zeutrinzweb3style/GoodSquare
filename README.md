@@ -9,8 +9,9 @@ Square offers interoperable modules that work together or on their own.
 
 This repository contains **Phase 1 — Foundation** (Square ID, community
 creation and membership, auth, API, and data layer), **Phase 2 —
-Participation** (Square Quest and Square Reputation), and **Phase 3 —
-Governance** (proposals and voting).
+Participation** (Square Quest and Square Reputation), **Phase 3 —
+Governance** (proposals and voting), and **Phase 4 — Financial
+infrastructure** (Square Treasury and Square Pay).
 
 ## What's implemented
 
@@ -21,11 +22,13 @@ Governance** (proposals and voting).
 | **Square Quest** | ✅ Available | Quest creation, proof submissions, moderator review |
 | **Square Reputation** | ✅ Available | EXP ledger, levels, badges, weekly/monthly leaderboards |
 | **Square Governance** | ✅ Available | Proposals, configurable eligibility/quorum/threshold, one-wallet-one-vote |
+| **Square Treasury** | ✅ Available | Non-custodial community treasury: verified balances, spending proposals, transparent activity |
+| **Square Pay** | ✅ Available | Non-custodial stablecoin payments and shareable payment requests |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
-| **Square Treasury & Pay** | ⏳ Phase 4 | Non-custodial treasury visibility and stablecoin payments |
 
-Modules not yet implemented expose explicit `501 NOT_IMPLEMENTED` responses so
-integrators are never misled by stub data.
+Square Treasury and Square Pay are **non-custodial**: the backend never holds a
+key and never sends a transaction. Every on-chain movement is signed by a user's
+own wallet; the server only verifies the receipt and records it.
 
 ### Square Reputation in detail
 
@@ -177,7 +180,15 @@ Open [http://localhost:3000](http://localhost:3000).
 | `PATCH` | `/api/v1/proposals/[id]` | Open, close, or cancel a proposal |
 | `POST` | `/api/v1/proposals/[id]/vote` | Cast a vote (one per wallet) |
 | `GET` | `/api/v1/proposals/[id]/results` | Tally, resolution, and vote history |
-| `GET`/`POST` | `/api/v1/payments` | Not implemented (Phase 4) |
+| `GET`/`POST` | `/api/v1/communities/[id]/treasury` | Read the treasury + balances; create it |
+| `PATCH` | `/api/v1/communities/[id]/treasury` | Update the treasury reference |
+| `GET`/`POST` | `/api/v1/communities/[id]/treasury/spending` | List / create spending proposals |
+| `GET`/`POST` | `/api/v1/communities/[id]/treasury/transactions` | List / record verified transfers |
+| `PATCH` | `/api/v1/treasury/spending/[id]` | Approve, reject, or cancel a spending proposal |
+| `POST` | `/api/v1/treasury/spending/[id]/execute` | Record an approved spend after on-chain verification |
+| `GET`/`POST` | `/api/v1/payment-requests` | List your requests / create one |
+| `GET`/`PATCH` | `/api/v1/payment-requests/[id]` | Request detail / cancel it |
+| `GET`/`POST` | `/api/v1/payments` | List payments / record a verified wallet-to-wallet payment |
 
 `[id]` accepts a community UUID or slug.
 
@@ -196,6 +207,14 @@ Open [http://localhost:3000](http://localhost:3000).
   a server-side pre-check. Eligibility (minimum role), the voting window, and
   the proposal status are all re-checked server-side before a vote is stored;
   vote weight is never taken from the client.
+- **Square Treasury and Square Pay are non-custodial.** The server never holds a
+  key and has no code path that signs or sends a transaction. A user's wallet
+  signs every transfer; the server only verifies the resulting receipt (token
+  contract, sender, recipient, exact amount, and success) before recording it.
+  Approving a spending proposal moves no funds.
+- Payable tokens come from a **static allowlist** in `src/lib/treasury/tokens.ts`;
+  a token address is never accepted from client input, which closes a class of
+  spoofing attacks. Amounts are stored as text base-unit integers, never floats.
 
 ## Project structure
 
@@ -203,12 +222,15 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
   app/
     api/auth/            # nonce, verify, logout, session
-    api/v1/              # communities, quests, submissions, reputation, badges, proposals
+    api/v1/              # communities, quests, submissions, reputation, badges, proposals, treasury, payments
     communities/         # explore, detail, new
       [slug]/quests/     # quest list and detail
       [slug]/leaderboard/
       [slug]/moderation/
       [slug]/proposals/  # proposal list and detail
+      [slug]/treasury/   # treasury balances, spending, activity
+      [slug]/pay/        # community payment requests
+    pay/[requestId]/     # public payment-request pay page
     profile/             # Square ID editor
     u/[address]/         # public profiles
   components/
@@ -216,6 +238,8 @@ src/
     quest/               # quest card, create form, submit panel, moderation queue
     reputation/          # leaderboard and EXP badges
     governance/          # proposal card, create form, vote panel
+    treasury/            # balances, treasury manager
+    pay/                 # pay button, payment-request form, pay view
     profile/             # Square ID form
     ui/                  # accessible primitives (button, card, input, …)
     wallet/              # connect wallet button
@@ -226,6 +250,8 @@ src/
     quest/               # quest and submission service
     reputation/          # EXP levels, reputation service, badges
     governance/          # proposal service + voting rules
+    treasury/            # token registry, amounts, verification, spending, service
+    pay/                 # payment status rules + service
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
@@ -246,8 +272,10 @@ npm test        # unit tests (node:test)
 
 - **Phase 1 — Foundation:** Square ID, communities, membership, API.
 - **Phase 2 — Participation:** Square Quest and Square Reputation.
-- **Phase 3 — Governance (this release):** proposals, voting, quorum.
-- **Phase 4:** Square Treasury and Square Pay (requires a security review).
+- **Phase 3 — Governance:** proposals, voting, quorum.
+- **Phase 4 — Financial infrastructure (this release):** Square Treasury and
+  Square Pay. Non-custodial by design; a formal security review is still
+  recommended before handling production funds at scale.
 
 ## License
 

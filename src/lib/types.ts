@@ -172,3 +172,108 @@ export interface ProposalResults {
   votes_against: number;
   votes_abstain: number;
 }
+
+export interface Treasury {
+  id: string;
+  community_id: string;
+  name: string;
+  address: string | null;
+  chain_id: number;
+  is_active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type SpendingStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "executed"
+  | "cancelled";
+
+export interface TreasurySpendingProposal {
+  id: string;
+  treasury_id: string;
+  community_id: string;
+  title: string;
+  description: string | null;
+  token_symbol: string;
+  amount: string;
+  recipient: string;
+  status: SpendingStatus;
+  proposal_id: string | null;
+  proposed_by: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  executed_tx_hash: string | null;
+  executed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type TreasuryTxDirection = "in" | "out";
+export type TreasuryTxSource = "spending" | "manual";
+
+export interface TreasuryTransaction {
+  id: string;
+  treasury_id: string;
+  community_id: string;
+  direction: TreasuryTxDirection;
+  token_symbol: string;
+  amount: string;
+  from_address: string;
+  to_address: string;
+  chain_id: number;
+  tx_hash: string;
+  block_number: number | null;
+  source: TreasuryTxSource;
+  spending_proposal_id: string | null;
+  recorded_by: string | null;
+  occurred_at: string | null;
+  created_at: string;
+}
+
+export type PaymentRequestStatus = "open" | "paid" | "cancelled";
+
+export interface PaymentRequest {
+  id: string;
+  community_id: string | null;
+  created_by: string;
+  payee_address: string;
+  chain_id: number;
+  token_symbol: string;
+  amount: string;
+  memo: string | null;
+  status: PaymentRequestStatus;
+  paid_tx_hash: string | null;
+  paid_by: string | null;
+  paid_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type PaymentStatus = "pending" | "verified" | "failed";
+
+export interface Payment {
+  id: string;
+  community_id: string | null;
+  payment_request_id: string | null;
+  payer_address: string;
+  payee_address: string;
+  chain_id: number;
+  token_symbol: string;
+  amount: string;
+  tx_hash: string;
+  block_number: number | null;
+  status: PaymentStatus;
+  verified_at: string | null;
+  created_at: string;
+}
+
+export interface TokenBalance {
+  token_symbol: string;
+  decimals: number;
+  /** Base-unit balance as a decimal string, or null when it could not be read. */
+  balance: string | null;
+}

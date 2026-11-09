@@ -93,6 +93,14 @@ async function CommunityDetail({
             Proposals
           </Link>
         </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/communities/${community.slug}/treasury`}>
+            Treasury
+          </Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/communities/${community.slug}/pay`}>Pay</Link>
+        </Button>
         {role === "owner" || role === "admin" || role === "moderator" ? (
           <Button asChild variant="outline" size="sm">
             <Link href={`/communities/${community.slug}/moderation`}>

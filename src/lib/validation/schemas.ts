@@ -180,6 +180,74 @@ export const updateProposalStatusSchema = z.object({
   status: z.enum(["draft", "active", "closed", "cancelled"]),
 });
 
+const tokenSymbol = z.enum(["CELO", "cUSD", "USDC", "USDT"]);
+
+/** Human decimal amount. Stored/validated as a string, never a float. */
+const amountString = z
+  .string()
+  .trim()
+  .regex(/^\d+(\.\d+)?$/, "Enter a positive decimal amount")
+  .refine((v) => Number(v) > 0, "Amount must be greater than zero");
+
+const txHash = z
+  .string()
+  .trim()
+  .regex(/^0x[a-fA-F0-9]{64}$/, "Enter a valid transaction hash");
+
+export const createTreasurySchema = z.object({
+  name: z.string().trim().min(1).max(80).default("Community Treasury"),
+  address: walletAddress.optional().or(z.literal("")),
+  chainId: z.coerce.number().int().positive().optional(),
+  isActive: z.boolean().default(true),
+});
+
+export const updateTreasurySchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  address: walletAddress.optional().or(z.literal("")),
+  isActive: z.boolean().optional(),
+});
+
+export const createSpendingProposalSchema = z.object({
+  title: z.string().trim().min(3).max(140),
+  description: z.string().trim().max(2000).optional().or(z.literal("")),
+  tokenSymbol,
+  amount: amountString,
+  recipient: walletAddress,
+  proposalId: z.string().uuid().optional().or(z.literal("")),
+});
+
+export const reviewSpendingProposalSchema = z.object({
+  decision: z.enum(["approved", "rejected", "cancelled"]),
+});
+
+export const executeSpendingProposalSchema = z.object({
+  txHash,
+});
+
+export const recordTreasuryTransactionSchema = z.object({
+  tokenSymbol,
+  amount: amountString,
+  fromAddress: walletAddress,
+  toAddress: walletAddress,
+  txHash,
+});
+
+export const createPaymentRequestSchema = z.object({
+  communityId: z.string().uuid().optional().or(z.literal("")),
+  tokenSymbol,
+  amount: amountString,
+  memo: z.string().trim().max(280).optional().or(z.literal("")),
+});
+
+export const recordPaymentSchema = z.object({
+  communityId: z.string().uuid().optional().or(z.literal("")),
+  paymentRequestId: z.string().uuid().optional().or(z.literal("")),
+  payeeAddress: walletAddress,
+  tokenSymbol,
+  amount: amountString,
+  txHash,
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateCommunityInput = z.infer<typeof createCommunitySchema>;
 export type CreateQuestInput = z.infer<typeof createQuestSchema>;

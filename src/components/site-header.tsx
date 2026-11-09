@@ -5,6 +5,7 @@ const NAV_LINKS = [
   { href: "/", label: "Overview" },
   { href: "/communities", label: "Explore" },
   { href: "/communities/new", label: "Create" },
+  { href: "/pay", label: "Pay" },
   { href: "/profile", label: "Square ID" },
 ];
 

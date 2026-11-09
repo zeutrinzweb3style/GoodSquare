@@ -11,6 +11,9 @@ const chains = targetChainId === celo.id ? ([celo, celoSepolia] as const) : ([ce
 
 export const defaultChain = chains[0];
 
+/** Chain ids the wallet can be asked to switch to. */
+export type SupportedChainId = (typeof chains)[number]["id"];
+
 export const wagmiConfig = createConfig({
   chains,
   connectors: [injected()],
