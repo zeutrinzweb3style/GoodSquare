@@ -1,0 +1,183 @@
+# Good Square — Open Community Infrastructure
+
+> One infrastructure. Unlimited communities.
+
+Good Square is open-source, modular community infrastructure built on the
+[Celo](https://celo.org) blockchain. Instead of every project rebuilding
+membership, contribution tracking, reputation, and payments from scratch, Good
+Square offers interoperable modules that work together or on their own.
+
+This repository contains **Phase 1 — Foundation**: Square ID, community
+creation and membership, and the supporting auth, API, and data layer.
+
+## What's implemented (Phase 1)
+
+| Module | Status | Notes |
+| --- | --- | --- |
+| **Square ID** | ✅ Available | Wallet-based identity, profile create/edit, public profile pages |
+| **Communities** | ✅ Available | Create, join, leave; owner/admin/moderator/contributor/member roles |
+| **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
+| **Square Quest** | ⏳ Phase 2 | Task creation, submissions, approvals |
+| **Square Reputation** | ⏳ Phase 2 | EXP, badges, leaderboards (metric only, never a currency) |
+| **Square Governance** | ⏳ Phase 3 | Proposals, voting, quorum |
+| **Square Treasury & Pay** | ⏳ Phase 4 | Non-custodial treasury visibility and stablecoin payments |
+
+Modules not yet implemented expose explicit `501 NOT_IMPLEMENTED` responses so
+integrators are never misled by stub data.
+
+## Design principles
+
+- **Non-custodial.** Good Square never asks for or stores private keys or seed
+  phrases. Users keep control of their wallets and assets.
+- **No native token.** There is no speculative tokenomics in the MVP. EXP is a
+  reputation metric with no monetary value.
+- **Community-owned.** Communities own their data and rules. Platform
+  administration is kept separate from community authority.
+- **Auditable.** Every sensitive action is written to an append-only
+  `audit_logs` table.
+- **Interoperable.** Modules expose a versioned API and can be adopted
+  independently.
+
+## Tech stack
+
+- **Next.js 16** (App Router, Turbopack, Cache Components) + React 19
+- **TypeScript**, **Tailwind CSS v4**
+- **wagmi** + **viem** for Celo wallet connectivity and signature verification
+- **Supabase** (Postgres + Row Level Security) for persistence
+- **jose** for signed session cookies
+- **zod** for request validation
+
+## Getting started
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure environment
+
+```bash
+cp .env.example .env.local
+```
+
+Fill in `.env.local`:
+
+| Variable | Purpose |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key (browser-safe) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-only key. Bypasses RLS — never expose it |
+| `SESSION_SECRET` | Random string ≥ 32 chars used to sign session cookies |
+| `NEXT_PUBLIC_CELO_CHAIN_ID` | `42220` (mainnet) or `11142220` (Celo Sepolia) |
+| `NEXT_PUBLIC_CELO_RPC_URL` | Celo mainnet RPC |
+| `NEXT_PUBLIC_CELO_SEPOLIA_RPC_URL` | Celo Sepolia RPC |
+
+Generate a session secret with `openssl rand -base64 48`.
+
+### 3. Apply the database schema
+
+Run the migration in your Supabase project (SQL editor or Supabase CLI):
+
+```bash
+supabase/migrations/0001_phase1_foundation.sql
+```
+
+It creates `profiles`, `communities`, `community_members`, `auth_nonces`, and
+`audit_logs`, and enables Row Level Security on all of them.
+
+### 4. Run the app
+
+```bash
+npm run dev
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+## Authentication flow
+
+1. The client requests a single-use nonce from `POST /api/auth/nonce`.
+2. The wallet signs the returned human-readable message.
+3. The client sends the signature to `POST /api/auth/verify`.
+4. The server checks the nonce is unused and unexpired, verifies the signature
+   with viem, consumes the nonce, then issues a signed, `httpOnly` session
+   cookie.
+5. A profile row is bootstrapped on first successful login.
+
+## API reference (v1)
+
+| Method | Path | Description |
+| --- | --- | --- |
+| `POST` | `/api/auth/nonce` | Issue a login nonce + message |
+| `POST` | `/api/auth/verify` | Verify signature, start session |
+| `POST` | `/api/auth/logout` | Clear the session |
+| `GET` | `/api/auth/session` | Current session and profile |
+| `GET` | `/api/v1/profiles/[address]` | Public profile |
+| `PATCH` | `/api/v1/profiles/[address]` | Update own profile |
+| `GET` | `/api/v1/communities` | List public communities |
+| `POST` | `/api/v1/communities` | Create a community (owner) |
+| `GET` | `/api/v1/communities/[id]` | Community detail |
+| `GET` | `/api/v1/communities/[id]/members` | List members |
+| `POST` | `/api/v1/communities/[id]/join` | Join a public community |
+| `DELETE` | `/api/v1/communities/[id]/join` | Leave a community |
+| `GET` | `/api/v1/reputation/[wallet]` | Not implemented (Phase 2) |
+| `GET`/`POST` | `/api/v1/payments` | Not implemented (Phase 4) |
+
+`[id]` accepts a community UUID or slug.
+
+## Security model
+
+- Wallet addresses are stored lowercase; EIP-55 casing is display-only.
+- Nonces are single-use, time-limited (5 minutes), and consumed only after a
+  successful signature check.
+- Session cookies are `httpOnly`, `SameSite=Lax`, and `Secure` in production.
+- Authorization is enforced server-side in route handlers. RLS additionally
+  protects direct database access: private communities are readable only by
+  members, and the nonce and audit tables are not reachable with the anon key.
+- The service-role key is used only in server code after explicit authorization
+  checks.
+
+## Project structure
+
+```
+src/
+  app/
+    api/auth/            # nonce, verify, logout, session
+    api/v1/              # communities, profiles, reputation, payments
+    communities/         # explore, detail, new
+    profile/             # Square ID editor
+    u/[address]/         # public profiles
+  components/
+    community/           # cards, create form, join/leave
+    profile/             # Square ID form
+    ui/                  # accessible primitives (button, card, input, …)
+    wallet/              # connect wallet button
+  lib/
+    api/                 # response helpers
+    auth/                # wallet, nonce, session, service, use-auth
+    community/           # community service + permission checks
+    supabase/            # browser, server, service-role, middleware clients
+    validation/          # zod schemas
+    wagmi/               # Celo chain config + provider
+supabase/migrations/     # SQL schema
+```
+
+## Scripts
+
+```bash
+npm run dev     # development server
+npm run build   # production build
+npm run start   # run the production build
+npm run lint    # eslint
+```
+
+## Roadmap
+
+- **Phase 1 — Foundation (this repo):** Square ID, communities, membership, API.
+- **Phase 2:** Square Quest and Square Reputation.
+- **Phase 3:** Square Governance.
+- **Phase 4:** Square Treasury and Square Pay (requires a security review).
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
