@@ -7,13 +7,17 @@ import { can, getCommunityBySlugOrId, getRole } from "@/lib/community/service";
 import {
   getTreasuryBalances,
   getTreasuryByCommunity,
+  listSpendingApprovals,
   listSpendingProposals,
+  listTreasurySigners,
   listTreasuryTransactions,
 } from "@/lib/treasury/service";
 import { defaultChainId, getToken } from "@/lib/treasury/tokens";
 import { formatAmount } from "@/lib/treasury/amounts";
+import { approvalProgress } from "@/lib/treasury/approvals";
 import { BalanceList } from "@/components/treasury/balance-list";
 import { TreasuryManager } from "@/components/treasury/treasury-manager";
+import { TreasurySigners } from "@/components/treasury/treasury-signers";
 import { EmptyState, LoadingState } from "@/components/ui/states";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,9 +56,30 @@ async function TreasuryDetail({
   const chainId = treasury?.chain_id ?? defaultChainId();
   const balances = treasury ? await getTreasuryBalances(treasury) : [];
   const proposals = await listSpendingProposals(community.id);
+  const signers = treasury ? await listTreasurySigners(treasury.id) : [];
   const transactions = treasury
     ? await listTreasuryTransactions(treasury.id, { limit: 50 })
     : [];
+
+  // Approvals are shown per proposal; load them for pending proposals only.
+  const approvalsByProposal: Record<
+    string,
+    { approved: number; required: number; mine: boolean }
+  > = {};
+  for (const proposal of proposals) {
+    if (proposal.status !== "pending") continue;
+    const approvals = await listSpendingApprovals(proposal.id);
+    approvalsByProposal[proposal.id] = {
+      ...approvalProgress({
+        signers: signers.map((signer) => signer.address),
+        approvals,
+        threshold: treasury?.approval_threshold ?? 1,
+      }),
+      mine: session?.sub
+        ? approvals.some((approval) => approval.approver === session.sub)
+        : false,
+    };
+  }
 
   const canManage = can(role, "treasury:manage");
   const canSpend = can(role, "treasury:spend");
@@ -95,10 +120,22 @@ async function TreasuryDetail({
           chainId={chainId}
           treasury={treasury}
           proposals={proposals}
+          approvalsByProposal={approvalsByProposal}
           canManage={canManage}
           canSpend={canSpend}
         />
       </section>
+
+      {treasury ? (
+        <section className="mt-10">
+          <TreasurySigners
+            communityId={community.id}
+            signers={signers}
+            approvalThreshold={treasury.approval_threshold}
+            canManage={canManage}
+          />
+        </section>
+      ) : null}
 
       <section className="mt-10">
         <h2 className="text-lg font-semibold tracking-tight">Recent activity</h2>

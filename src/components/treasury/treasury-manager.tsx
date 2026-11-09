@@ -36,6 +36,7 @@ export function TreasuryManager({
   chainId,
   treasury,
   proposals,
+  approvalsByProposal,
   canManage,
   canSpend,
 }: {
@@ -43,6 +44,10 @@ export function TreasuryManager({
   chainId: number;
   treasury: Treasury | null;
   proposals: TreasurySpendingProposal[];
+  approvalsByProposal: Record<
+    string,
+    { approved: number; required: number; mine: boolean }
+  >;
   canManage: boolean;
   canSpend: boolean;
 }) {
@@ -99,6 +104,7 @@ export function TreasuryManager({
               key={proposal.id}
               proposal={proposal}
               treasury={treasury}
+              progress={approvalsByProposal[proposal.id] ?? null}
               canSpend={canSpend}
             />
           ))
@@ -430,10 +436,12 @@ function CreateSpendingForm({
 function SpendingCard({
   proposal,
   treasury,
+  progress,
   canSpend,
 }: {
   proposal: TreasurySpendingProposal;
   treasury: Treasury | null;
+  progress: { approved: number; required: number; mine: boolean } | null;
   canSpend: boolean;
 }) {
   const router = useRouter();
@@ -480,6 +488,23 @@ function SpendingCard({
     }
   }
 
+  async function withdrawApproval() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v1/treasury/spending/${proposal.id}`, {
+        method: "DELETE",
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(json?.error?.message ?? "Could not withdraw");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not withdraw");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -501,6 +526,13 @@ function SpendingCard({
           <span>to</span>
           <span className="font-mono">{shortenAddress(proposal.recipient, 6)}</span>
         </div>
+        {progress && proposal.status === "pending" ? (
+          <p className="text-xs text-muted-foreground">
+            {progress.required > 1
+              ? `${progress.approved} of ${progress.required} signer approvals`
+              : "Awaiting approval"}
+          </p>
+        ) : null}
         {proposal.executed_tx_hash ? (
           <p className="break-all text-xs text-muted-foreground">
             tx {proposal.executed_tx_hash}
@@ -512,6 +544,16 @@ function SpendingCard({
             <Button size="sm" disabled={busy} onClick={() => review("approved")}>
               Approve
             </Button>
+            {progress?.mine ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={busy}
+                onClick={withdrawApproval}
+              >
+                Withdraw approval
+              </Button>
+            ) : null}
             <Button
               size="sm"
               variant="outline"

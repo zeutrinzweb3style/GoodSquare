@@ -11,7 +11,8 @@ This repository contains **Phase 1 — Foundation** (Square ID, community
 creation and membership, auth, API, and data layer), **Phase 2 —
 Participation** (Square Quest and Square Reputation), **Phase 3 —
 Governance** (proposals and voting), and **Phase 4 — Financial
-infrastructure** (Square Treasury and Square Pay).
+infrastructure** (Square Treasury with multisig-style approvals, Square Pay
+with QR codes, community rewards, and notifications).
 
 ## What's implemented
 
@@ -22,8 +23,10 @@ infrastructure** (Square Treasury and Square Pay).
 | **Square Quest** | ✅ Available | Quest creation, proof submissions, moderator review |
 | **Square Reputation** | ✅ Available | EXP ledger, levels, badges, weekly/monthly leaderboards |
 | **Square Governance** | ✅ Available | Proposals, configurable eligibility/quorum/threshold, one-wallet-one-vote |
-| **Square Treasury** | ✅ Available | Non-custodial community treasury: verified balances, spending proposals, transparent activity |
-| **Square Pay** | ✅ Available | Non-custodial stablecoin payments and shareable payment requests |
+| **Square Treasury** | ✅ Available | Non-custodial community treasury: verified balances, spending proposals, multisig-style approvals, transparent activity |
+| **Square Pay** | ✅ Available | Non-custodial stablecoin payments, shareable payment requests, and QR codes |
+| **Community Rewards** | ✅ Available | Non-custodial contributor reward distributions from the treasury |
+| **Notifications** | ✅ Available | In-app updates for proposals, payments, and rewards |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
 
 Square Treasury and Square Pay are **non-custodial**: the backend never holds a
@@ -59,6 +62,30 @@ own wallet; the server only verifies the receipt and records it.
 - Every vote and status change is written to `audit_logs`. Results are derived
   from a `proposal_results` view, never stored as an editable total.
 - Voting is open only while a proposal is `active` and inside its window.
+
+### Square Treasury in detail
+
+- A treasury is a public reference to a community wallet. Good Square has no
+  authority over the address and cannot move funds.
+- Balances are read live from Celo for the allowlisted tokens (CELO, cUSD,
+  USDC, USDT).
+- A spending proposal is an off-chain record of intent. **Approving it changes a
+  status only.**
+- A community can name **signers** and set an **approval threshold**. A proposal
+  then becomes `approved` only after that many distinct signers approve it.
+  Signers never gain custody.
+- A signer sends the transaction from the treasury wallet and submits the hash.
+  The server verifies the receipt (token contract, sender, recipient, exact
+  amount) before marking the proposal `executed` and recording the transaction.
+
+### Community Rewards in detail
+
+- A reward distribution is a plan to pay several contributors in one token.
+- It moves nothing until it is activated. For each recipient, a treasury signer
+  sends the transfer and submits the hash; the server verifies it, marks the
+  recipient `paid`, and records the treasury transaction.
+- When every recipient is paid or skipped, the distribution completes
+  automatically. Duplicate recipients and non-positive amounts are rejected.
 
 ## Design principles
 
@@ -119,12 +146,17 @@ order:
 supabase/migrations/0001_phase1_foundation.sql
 supabase/migrations/0002_phase2_participation.sql
 supabase/migrations/0003_phase3_governance.sql
+supabase/migrations/0004_phase4_financial.sql
+supabase/migrations/0005_phase4_financial_completion.sql
 ```
 
 They create `profiles`, `communities`, `community_members`, `auth_nonces`,
 `audit_logs`, `quests`, `quest_submissions`, `quest_approvals`,
-`reputation_events`, `badges`, `user_badges`, `proposals`, and `votes`, and
-enable Row Level Security on all of them.
+`reputation_events`, `badges`, `user_badges`, `proposals`, `votes`,
+`treasuries`, `treasury_signers`, `treasury_spending_proposals`,
+`treasury_spending_approvals`, `treasury_transactions`, `payment_requests`,
+`payments`, `reward_distributions`, `reward_recipients`, and `notifications`,
+and enable Row Level Security on all of them.
 
 ### 4. Run the app
 
@@ -181,11 +213,17 @@ Open [http://localhost:3000](http://localhost:3000).
 | `POST` | `/api/v1/proposals/[id]/vote` | Cast a vote (one per wallet) |
 | `GET` | `/api/v1/proposals/[id]/results` | Tally, resolution, and vote history |
 | `GET`/`POST` | `/api/v1/communities/[id]/treasury` | Read the treasury + balances; create it |
-| `PATCH` | `/api/v1/communities/[id]/treasury` | Update the treasury reference |
+| `PATCH` | `/api/v1/communities/[id]/treasury` | Update the treasury reference or approval threshold |
+| `GET`/`POST` | `/api/v1/communities/[id]/treasury/signers` | List / add treasury signers |
+| `DELETE` | `/api/v1/communities/[id]/treasury/signers/[address]` | Remove a treasury signer |
 | `GET`/`POST` | `/api/v1/communities/[id]/treasury/spending` | List / create spending proposals |
 | `GET`/`POST` | `/api/v1/communities/[id]/treasury/transactions` | List / record verified transfers |
-| `PATCH` | `/api/v1/treasury/spending/[id]` | Approve, reject, or cancel a spending proposal |
+| `GET`/`PATCH`/`DELETE` | `/api/v1/treasury/spending/[id]` | Approval state; approve, reject, or cancel; withdraw own approval |
 | `POST` | `/api/v1/treasury/spending/[id]/execute` | Record an approved spend after on-chain verification |
+| `GET`/`POST` | `/api/v1/communities/[id]/treasury/rewards` | List / create reward distributions |
+| `GET`/`PATCH` | `/api/v1/rewards/[id]` | Distribution detail with recipients; activate, cancel, or complete |
+| `POST` | `/api/v1/rewards/[id]/recipients/[recipientId]` | Record a verified reward payout |
+| `GET`/`PATCH` | `/api/v1/notifications` | List notifications / mark them read |
 | `GET`/`POST` | `/api/v1/payment-requests` | List your requests / create one |
 | `GET`/`PATCH` | `/api/v1/payment-requests/[id]` | Request detail / cancel it |
 | `GET`/`POST` | `/api/v1/payments` | List payments / record a verified wallet-to-wallet payment |
