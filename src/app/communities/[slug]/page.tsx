@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { Suspense } from "react";
 import { connection } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getSession } from "@/lib/auth/session";
 import { getCommunityBySlugOrId, getRole } from "@/lib/community/service";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { JoinLeaveButton } from "@/components/community/join-leave-button";
 import { LoadingState } from "@/components/ui/states";
@@ -75,6 +77,24 @@ async function CommunityDetail({
           visibility={community.visibility}
           role={role}
         />
+      </div>
+
+      <div className="mt-6 flex flex-wrap gap-2">
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/communities/${community.slug}/quests`}>Quests</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/communities/${community.slug}/leaderboard`}>
+            Leaderboard
+          </Link>
+        </Button>
+        {role === "owner" || role === "admin" || role === "moderator" ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/communities/${community.slug}/moderation`}>
+              Moderation
+            </Link>
+          </Button>
+        ) : null}
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">

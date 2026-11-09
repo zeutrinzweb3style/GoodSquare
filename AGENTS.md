@@ -12,8 +12,9 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 ## What this is
 Open-source, modular community infrastructure on **Celo**. Phase 1 (Foundation)
-is implemented here: Square ID, communities, membership, roles, and a versioned
-REST API. Quest, Reputation, Governance, Treasury/Pay are later phases.
+and Phase 2 (Participation) are implemented here: Square ID, communities,
+membership, roles, Square Quest, Square Reputation, and a versioned REST API.
+Governance and Treasury/Pay are later phases.
 
 ## Golden rules
 - **No native token, no speculative tokenomics.** EXP is a reputation metric
@@ -48,13 +49,25 @@ npx next typegen # regenerate route types after adding pages/routes
 - `middleware` is replaced by **`proxy.ts`** (exports `proxy` + `config`).
 - `cookies()`/`headers()`/`params` are async — always `await` them.
 
-## Data model (supabase/migrations/0001_phase1_foundation.sql)
+## Data model
+### Phase 1 (supabase/migrations/0001_phase1_foundation.sql)
 - `profiles` — Square ID, keyed by lowercase wallet address.
 - `communities` — slug-unique, `visibility` public|private, `member_count`
   maintained by a trigger.
 - `community_members` — unique `(community_id, address)`, role check constraint.
 - `auth_nonces` — single-use, 5-minute login nonces (service-role only).
 - `audit_logs` — append-only; not readable with the anon key.
+
+### Phase 2 (supabase/migrations/0002_phase2_participation.sql)
+- `quests` — per-community tasks; `exp_reward`, `category`, `status`,
+  `deadline`; `submission_count` maintained by a trigger.
+- `quest_submissions` — unique `(quest_id, address)` prevents duplicate
+  submissions; `status` pending|approved|rejected.
+- `quest_approvals` — immutable review history (append-only).
+- `reputation_events` — append-only EXP ledger; `community_reputation` view
+  derives per-community totals.
+- `badges` / `user_badges` — community-scoped achievement definitions and awards
+  (unique `(badge_id, address)`).
 
 ## Auth flow
 `POST /api/auth/nonce` -> wallet signs the returned message -> `POST
@@ -73,5 +86,15 @@ on first login.
   shadcn CLI dependency).
 
 ## Not implemented yet (return 501 explicitly)
-`/api/v1/reputation/[wallet]` (Phase 2), `/api/v1/payments` (Phase 4). Do not
-return mock data for these.
+`/api/v1/payments` (Phase 4). Do not return mock data for it.
+
+## Reputation rules (do not break these)
+- EXP is **append-only** in `reputation_events`. Never update a total in place;
+  always insert a new event and derive totals (the `community_reputation` view).
+- Levels live in `src/lib/reputation/levels.ts` and must match the proposal:
+  Newcomer 0–99, Contributor 100–499, Active Member 500–999, Builder 1,000–2,499,
+  Ambassador 2,500–4,999, Champion 5,000+.
+- Approving a quest submission awards `quest.exp_reward` exactly once (guarded
+  by the submission's `pending` status), and is the only automatic EXP source.
+- Rewards are never transferred automatically; a community defines its own
+  validation and eligibility rules.

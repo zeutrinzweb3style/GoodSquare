@@ -44,6 +44,45 @@ async function ProfileDetail({
     .select("*", { count: "exact", head: true })
     .eq("address", profile.address);
 
+  const { data: reputationRows } = await supabase
+    .from("community_reputation")
+    .select("exp")
+    .eq("address", profile.address);
+  const totalExp = (reputationRows ?? []).reduce((sum, row) => sum + row.exp, 0);
+
+  // Only badges from public communities are shown on a public profile.
+  const { data: badgeRows } = await supabase
+    .from("user_badges")
+    .select("id, community_id, badges:badge_id (slug, name, icon)")
+    .eq("address", profile.address)
+    .order("awarded_at", { ascending: false })
+    .limit(24);
+
+  const badgeCommunityIds = [
+    ...new Set((badgeRows ?? []).map((row) => row.community_id)),
+  ];
+  const publicCommunityIds = new Set<string>();
+  if (badgeCommunityIds.length > 0) {
+    const { data: publicCommunities } = await supabase
+      .from("communities")
+      .select("id")
+      .eq("visibility", "public")
+      .in("id", badgeCommunityIds);
+    for (const row of publicCommunities ?? []) {
+      publicCommunityIds.add(row.id);
+    }
+  }
+
+  const badges = (badgeRows ?? [])
+    .filter((row) => publicCommunityIds.has(row.community_id))
+    .map((row) => {
+      const badge = Array.isArray(row.badges) ? row.badges[0] : row.badges;
+      return badge;
+    })
+    .filter((badge): badge is { slug: string; name: string; icon: string | null } =>
+      Boolean(badge),
+    );
+
   return (
     <main className="mx-auto w-full max-w-2xl px-4 py-12">
       <Card>
@@ -74,7 +113,23 @@ async function ProfileDetail({
               {communityCount ?? 0}{" "}
               {communityCount === 1 ? "community" : "communities"}
             </Badge>
+            <Badge variant="secondary">{totalExp} EXP</Badge>
           </div>
+
+          {badges.length > 0 ? (
+            <div className="space-y-2">
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Badges
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {badges.map((badge) => (
+                  <Badge key={badge.slug} variant="outline">
+                    {badge.name}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
     </main>

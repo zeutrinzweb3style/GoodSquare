@@ -7,23 +7,40 @@ Good Square is open-source, modular community infrastructure built on the
 membership, contribution tracking, reputation, and payments from scratch, Good
 Square offers interoperable modules that work together or on their own.
 
-This repository contains **Phase 1 — Foundation**: Square ID, community
-creation and membership, and the supporting auth, API, and data layer.
+This repository contains **Phase 1 — Foundation** (Square ID, community
+creation and membership, auth, API, and data layer) and **Phase 2 —
+Participation** (Square Quest and Square Reputation).
 
-## What's implemented (Phase 1)
+## What's implemented
 
 | Module | Status | Notes |
 | --- | --- | --- |
 | **Square ID** | ✅ Available | Wallet-based identity, profile create/edit, public profile pages |
 | **Communities** | ✅ Available | Create, join, leave; owner/admin/moderator/contributor/member roles |
+| **Square Quest** | ✅ Available | Quest creation, proof submissions, moderator review |
+| **Square Reputation** | ✅ Available | EXP ledger, levels, badges, weekly/monthly leaderboards |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
-| **Square Quest** | ⏳ Phase 2 | Task creation, submissions, approvals |
-| **Square Reputation** | ⏳ Phase 2 | EXP, badges, leaderboards (metric only, never a currency) |
 | **Square Governance** | ⏳ Phase 3 | Proposals, voting, quorum |
 | **Square Treasury & Pay** | ⏳ Phase 4 | Non-custodial treasury visibility and stablecoin payments |
 
 Modules not yet implemented expose explicit `501 NOT_IMPLEMENTED` responses so
 integrators are never misled by stub data.
+
+### Square Reputation in detail
+
+- EXP is recorded as an **append-only ledger** (`reputation_events`). Totals are
+  always derived, never edited in place, so every change is auditable.
+- Levels follow the specification: Newcomer (0–99), Contributor (100–499),
+  Active Member (500–999), Builder (1,000–2,499), Ambassador (2,500–4,999),
+  Champion (5,000+).
+- Reputation is **community-specific by default**; the API can also aggregate
+  across communities.
+- **EXP is a reputation metric, not a currency.** It has no monetary value and
+  guarantees no rewards.
+- Only authorized community actions award EXP. Approving a quest submission is
+  the only automatic source, and it can only happen once per submission.
+- Leaderboards support all-time, weekly (last 7 days), and monthly (last 30
+  days) windows.
 
 ## Design principles
 
@@ -77,14 +94,18 @@ Generate a session secret with `openssl rand -base64 48`.
 
 ### 3. Apply the database schema
 
-Run the migration in your Supabase project (SQL editor or Supabase CLI):
+Run the migrations in your Supabase project (SQL editor or Supabase CLI), in
+order:
 
 ```bash
 supabase/migrations/0001_phase1_foundation.sql
+supabase/migrations/0002_phase2_participation.sql
 ```
 
-It creates `profiles`, `communities`, `community_members`, `auth_nonces`, and
-`audit_logs`, and enables Row Level Security on all of them.
+They create `profiles`, `communities`, `community_members`, `auth_nonces`,
+`audit_logs`, `quests`, `quest_submissions`, `quest_approvals`,
+`reputation_events`, `badges`, and `user_badges`, and enable Row Level Security
+on all of them.
 
 ### 4. Run the app
 
@@ -120,7 +141,20 @@ Open [http://localhost:3000](http://localhost:3000).
 | `GET` | `/api/v1/communities/[id]/members` | List members |
 | `POST` | `/api/v1/communities/[id]/join` | Join a public community |
 | `DELETE` | `/api/v1/communities/[id]/join` | Leave a community |
-| `GET` | `/api/v1/reputation/[wallet]` | Not implemented (Phase 2) |
+| `GET` | `/api/v1/communities/[id]/quests` | List quests |
+| `POST` | `/api/v1/communities/[id]/quests` | Create a quest |
+| `GET` | `/api/v1/communities/[id]/leaderboard` | EXP leaderboard (`?period=all\|week\|month`) |
+| `GET` | `/api/v1/communities/[id]/moderation` | Pending submissions (moderators) |
+| `GET` | `/api/v1/communities/[id]/badges` | List badge definitions |
+| `POST` | `/api/v1/communities/[id]/badges` | Create a badge definition |
+| `GET` | `/api/v1/quests/[id]` | Quest detail |
+| `PATCH` | `/api/v1/quests/[id]` | Update a quest |
+| `GET` | `/api/v1/quests/[id]/submissions` | List submissions (own, or all for moderators) |
+| `POST` | `/api/v1/quests/[id]/submissions` | Submit proof of completion |
+| `POST` | `/api/v1/submissions/[id]/review` | Approve or reject a submission |
+| `POST` | `/api/v1/badges/[id]/award` | Award a badge to a wallet |
+| `GET` | `/api/v1/reputation/[wallet]` | Reputation (`?community=<id\|slug>` to scope) |
+| `POST` | `/api/v1/reputation/[wallet]` | Manual EXP adjustment (authorized only) |
 | `GET`/`POST` | `/api/v1/payments` | Not implemented (Phase 4) |
 
 `[id]` accepts a community UUID or slug.
@@ -143,12 +177,17 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
   app/
     api/auth/            # nonce, verify, logout, session
-    api/v1/              # communities, profiles, reputation, payments
+    api/v1/              # communities, quests, submissions, reputation, badges
     communities/         # explore, detail, new
+      [slug]/quests/     # quest list and detail
+      [slug]/leaderboard/
+      [slug]/moderation/
     profile/             # Square ID editor
     u/[address]/         # public profiles
   components/
     community/           # cards, create form, join/leave
+    quest/               # quest card, create form, submit panel, moderation queue
+    reputation/          # leaderboard and EXP badges
     profile/             # Square ID form
     ui/                  # accessible primitives (button, card, input, …)
     wallet/              # connect wallet button
@@ -156,6 +195,8 @@ src/
     api/                 # response helpers
     auth/                # wallet, nonce, session, service, use-auth
     community/           # community service + permission checks
+    quest/               # quest and submission service
+    reputation/          # EXP levels, reputation service, badges
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
@@ -169,12 +210,14 @@ npm run dev     # development server
 npm run build   # production build
 npm run start   # run the production build
 npm run lint    # eslint
+npm test        # unit tests (node:test)
 ```
 
 ## Roadmap
 
-- **Phase 1 — Foundation (this repo):** Square ID, communities, membership, API.
-- **Phase 2:** Square Quest and Square Reputation.
+- **Phase 1 — Foundation:** Square ID, communities, membership, API.
+- **Phase 2 — Participation (this release):** Square Quest and Square
+  Reputation.
 - **Phase 3:** Square Governance.
 - **Phase 4:** Square Treasury and Square Pay (requires a security review).
 
