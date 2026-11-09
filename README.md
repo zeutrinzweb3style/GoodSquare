@@ -8,8 +8,9 @@ membership, contribution tracking, reputation, and payments from scratch, Good
 Square offers interoperable modules that work together or on their own.
 
 This repository contains **Phase 1 — Foundation** (Square ID, community
-creation and membership, auth, API, and data layer) and **Phase 2 —
-Participation** (Square Quest and Square Reputation).
+creation and membership, auth, API, and data layer), **Phase 2 —
+Participation** (Square Quest and Square Reputation), and **Phase 3 —
+Governance** (proposals and voting).
 
 ## What's implemented
 
@@ -19,8 +20,8 @@ Participation** (Square Quest and Square Reputation).
 | **Communities** | ✅ Available | Create, join, leave; owner/admin/moderator/contributor/member roles |
 | **Square Quest** | ✅ Available | Quest creation, proof submissions, moderator review |
 | **Square Reputation** | ✅ Available | EXP ledger, levels, badges, weekly/monthly leaderboards |
+| **Square Governance** | ✅ Available | Proposals, configurable eligibility/quorum/threshold, one-wallet-one-vote |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
-| **Square Governance** | ⏳ Phase 3 | Proposals, voting, quorum |
 | **Square Treasury & Pay** | ⏳ Phase 4 | Non-custodial treasury visibility and stablecoin payments |
 
 Modules not yet implemented expose explicit `501 NOT_IMPLEMENTED` responses so
@@ -41,6 +42,20 @@ integrators are never misled by stub data.
   the only automatic source, and it can only happen once per submission.
 - Leaderboards support all-time, weekly (last 7 days), and monthly (last 30
   days) windows.
+
+### Square Governance in detail
+
+- Proposals carry a title, description, voting start/end dates, and per-community
+  rules: who may vote (a minimum role), a **quorum** percentage of eligible
+  members, and an **approval threshold** percentage of decisive votes.
+- The MVP is **one wallet, one vote**. Duplicate voting is prevented by a unique
+  `(proposal_id, address)` constraint, and a `weight` column (fixed at 1) leaves
+  room for future reputation- or token-weighted voting.
+- Quorum counts every cast vote; approval is measured over decisive votes only,
+  so an abstention never counts for or against a proposal.
+- Every vote and status change is written to `audit_logs`. Results are derived
+  from a `proposal_results` view, never stored as an editable total.
+- Voting is open only while a proposal is `active` and inside its window.
 
 ## Design principles
 
@@ -100,12 +115,13 @@ order:
 ```bash
 supabase/migrations/0001_phase1_foundation.sql
 supabase/migrations/0002_phase2_participation.sql
+supabase/migrations/0003_phase3_governance.sql
 ```
 
 They create `profiles`, `communities`, `community_members`, `auth_nonces`,
 `audit_logs`, `quests`, `quest_submissions`, `quest_approvals`,
-`reputation_events`, `badges`, and `user_badges`, and enable Row Level Security
-on all of them.
+`reputation_events`, `badges`, `user_badges`, `proposals`, and `votes`, and
+enable Row Level Security on all of them.
 
 ### 4. Run the app
 
@@ -155,6 +171,12 @@ Open [http://localhost:3000](http://localhost:3000).
 | `POST` | `/api/v1/badges/[id]/award` | Award a badge to a wallet |
 | `GET` | `/api/v1/reputation/[wallet]` | Reputation (`?community=<id\|slug>` to scope) |
 | `POST` | `/api/v1/reputation/[wallet]` | Manual EXP adjustment (authorized only) |
+| `GET` | `/api/v1/communities/[id]/proposals` | List proposals |
+| `POST` | `/api/v1/communities/[id]/proposals` | Create a proposal |
+| `GET` | `/api/v1/proposals/[id]` | Proposal detail with live tally |
+| `PATCH` | `/api/v1/proposals/[id]` | Open, close, or cancel a proposal |
+| `POST` | `/api/v1/proposals/[id]/vote` | Cast a vote (one per wallet) |
+| `GET` | `/api/v1/proposals/[id]/results` | Tally, resolution, and vote history |
 | `GET`/`POST` | `/api/v1/payments` | Not implemented (Phase 4) |
 
 `[id]` accepts a community UUID or slug.
@@ -170,6 +192,10 @@ Open [http://localhost:3000](http://localhost:3000).
   members, and the nonce and audit tables are not reachable with the anon key.
 - The service-role key is used only in server code after explicit authorization
   checks.
+- Votes are one per wallet per proposal, enforced both by a unique constraint and
+  a server-side pre-check. Eligibility (minimum role), the voting window, and
+  the proposal status are all re-checked server-side before a vote is stored;
+  vote weight is never taken from the client.
 
 ## Project structure
 
@@ -177,17 +203,19 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
   app/
     api/auth/            # nonce, verify, logout, session
-    api/v1/              # communities, quests, submissions, reputation, badges
+    api/v1/              # communities, quests, submissions, reputation, badges, proposals
     communities/         # explore, detail, new
       [slug]/quests/     # quest list and detail
       [slug]/leaderboard/
       [slug]/moderation/
+      [slug]/proposals/  # proposal list and detail
     profile/             # Square ID editor
     u/[address]/         # public profiles
   components/
     community/           # cards, create form, join/leave
     quest/               # quest card, create form, submit panel, moderation queue
     reputation/          # leaderboard and EXP badges
+    governance/          # proposal card, create form, vote panel
     profile/             # Square ID form
     ui/                  # accessible primitives (button, card, input, …)
     wallet/              # connect wallet button
@@ -197,6 +225,7 @@ src/
     community/           # community service + permission checks
     quest/               # quest and submission service
     reputation/          # EXP levels, reputation service, badges
+    governance/          # proposal service + voting rules
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
@@ -216,9 +245,8 @@ npm test        # unit tests (node:test)
 ## Roadmap
 
 - **Phase 1 — Foundation:** Square ID, communities, membership, API.
-- **Phase 2 — Participation (this release):** Square Quest and Square
-  Reputation.
-- **Phase 3:** Square Governance.
+- **Phase 2 — Participation:** Square Quest and Square Reputation.
+- **Phase 3 — Governance (this release):** proposals, voting, quorum.
 - **Phase 4:** Square Treasury and Square Pay (requires a security review).
 
 ## License

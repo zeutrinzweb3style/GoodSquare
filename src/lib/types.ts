@@ -126,3 +126,49 @@ export interface LeaderboardEntry {
   display_name?: string | null;
   avatar_url?: string | null;
 }
+
+export type ProposalStatus = "draft" | "active" | "closed" | "cancelled";
+
+export type VoteChoice = "for" | "against" | "abstain";
+
+export interface Proposal {
+  id: string;
+  community_id: string;
+  title: string;
+  description: string | null;
+  status: ProposalStatus;
+  voting_starts_at: string | null;
+  voting_ends_at: string | null;
+  voter_role: CommunityRole;
+  quorum_percent: number;
+  approval_threshold: number;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Vote {
+  id: string;
+  proposal_id: string;
+  community_id: string;
+  address: string;
+  choice: VoteChoice;
+  weight: number;
+  reason: string | null;
+  created_at: string;
+}
+
+export interface ProposalResults {
+  proposal_id: string;
+  community_id: string;
+  status: ProposalStatus;
+  voter_role: CommunityRole;
+  quorum_percent: number;
+  approval_threshold: number;
+  voting_starts_at: string | null;
+  voting_ends_at: string | null;
+  total_votes: number;
+  votes_for: number;
+  votes_against: number;
+  votes_abstain: number;
+}

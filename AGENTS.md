@@ -11,10 +11,10 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 # Good Square — repository notes for agents
 
 ## What this is
-Open-source, modular community infrastructure on **Celo**. Phase 1 (Foundation)
-and Phase 2 (Participation) are implemented here: Square ID, communities,
-membership, roles, Square Quest, Square Reputation, and a versioned REST API.
-Governance and Treasury/Pay are later phases.
+Open-source, modular community infrastructure on **Celo**. Phase 1 (Foundation),
+Phase 2 (Participation), and Phase 3 (Governance) are implemented here: Square
+ID, communities, membership, roles, Square Quest, Square Reputation, Square
+Governance, and a versioned REST API. Treasury/Pay is a later phase.
 
 ## Golden rules
 - **No native token, no speculative tokenomics.** EXP is a reputation metric
@@ -69,6 +69,14 @@ npx next typegen # regenerate route types after adding pages/routes
 - `badges` / `user_badges` — community-scoped achievement definitions and awards
   (unique `(badge_id, address)`).
 
+### Phase 3 (supabase/migrations/0003_phase3_governance.sql)
+- `proposals` — title, description, `status` (draft|active|closed|cancelled),
+  voting window, `voter_role` (minimum eligible role), `quorum_percent`,
+  `approval_threshold`.
+- `votes` — unique `(proposal_id, address)` prevents duplicate voting; `choice`
+  for|against|abstain; `weight` fixed at 1 (reserved for future weighting).
+- `proposal_results` — view deriving per-proposal tallies (never stored).
+
 ## Auth flow
 `POST /api/auth/nonce` -> wallet signs the returned message -> `POST
 /api/auth/verify` verifies with viem, consumes the nonce, sets an httpOnly
@@ -98,3 +106,17 @@ on first login.
   by the submission's `pending` status), and is the only automatic EXP source.
 - Rewards are never transferred automatically; a community defines its own
   validation and eligibility rules.
+
+## Governance rules (do not break these)
+- Voting is **one wallet, one vote**. Duplicate votes are prevented by the
+  unique `(proposal_id, address)` constraint *and* a server-side pre-check.
+- Re-check everything server-side before storing a vote: authentication,
+  eligibility (`voter_role`), the proposal is `active`, and `isVotingOpen`.
+  Never trust a client-supplied weight; it is always 1.
+- Quorum counts every cast vote; approval is over decisive votes only, so
+  abstentions never count for or against. Ties at the threshold pass (`>=`).
+- Tallies come from the `proposal_results` view — never store an editable total.
+- Pure rules live in `src/lib/governance/results.ts`; keep them I/O-free so the
+  tests in `tests/governance.test.ts` can exercise them directly.
+- Advanced (reputation- or token-weighted) voting must not be enabled until its
+  eligibility and security rules are clearly defined.

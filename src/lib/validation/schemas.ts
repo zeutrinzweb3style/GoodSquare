@@ -133,6 +133,53 @@ export const leaderboardQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(25),
 });
 
+const roleEnum = z.enum([
+  "owner",
+  "admin",
+  "moderator",
+  "contributor",
+  "member",
+  "visitor",
+]);
+
+export const createProposalSchema = z
+  .object({
+    title: z.string().trim().min(3).max(140),
+    description: z.string().trim().max(5000).optional().or(z.literal("")),
+    votingStartsAt: z
+      .string()
+      .trim()
+      .datetime({ offset: true })
+      .optional()
+      .or(z.literal("")),
+    votingEndsAt: z
+      .string()
+      .trim()
+      .datetime({ offset: true })
+      .optional()
+      .or(z.literal("")),
+    voterRole: roleEnum.default("member"),
+    quorumPercent: z.coerce.number().int().min(0).max(100).default(0),
+    approvalThreshold: z.coerce.number().int().min(0).max(100).default(50),
+    status: z.enum(["draft", "active"]).default("active"),
+  })
+  .refine(
+    (v) =>
+      !v.votingStartsAt ||
+      !v.votingEndsAt ||
+      Date.parse(v.votingEndsAt) > Date.parse(v.votingStartsAt),
+    { message: "Voting must end after it starts", path: ["votingEndsAt"] },
+  );
+
+export const castVoteSchema = z.object({
+  choice: z.enum(["for", "against", "abstain"]),
+  reason: z.string().trim().max(500).optional().or(z.literal("")),
+});
+
+export const updateProposalStatusSchema = z.object({
+  status: z.enum(["draft", "active", "closed", "cancelled"]),
+});
+
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type CreateCommunityInput = z.infer<typeof createCommunitySchema>;
 export type CreateQuestInput = z.infer<typeof createQuestSchema>;

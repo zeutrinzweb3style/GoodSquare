@@ -31,6 +31,7 @@ export const PERMISSIONS = [
   "reputation:award",
   "treasury:manage",
   "proposal:create",
+  "proposal:manage",
   "vote:cast",
 ] as const;
 
@@ -45,9 +46,15 @@ const ROLE_PERMISSIONS: Record<CommunityRole, Permission[]> = {
     "quest:moderate",
     "reputation:award",
     "proposal:create",
+    "proposal:manage",
     "vote:cast",
   ],
-  moderator: ["quest:moderate", "proposal:create", "vote:cast"],
+  moderator: [
+    "quest:moderate",
+    "proposal:create",
+    "proposal:manage",
+    "vote:cast",
+  ],
   contributor: ["proposal:create", "vote:cast"],
   member: ["vote:cast"],
   visitor: [],
