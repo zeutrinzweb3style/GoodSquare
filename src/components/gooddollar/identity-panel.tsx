@@ -1,13 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { isAddress } from "viem";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { celo } from "wagmi/chains";
 import { useIdentitySDK } from "@goodsdks/react-hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog } from "@/components/ui/dialog";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   GOODDOLLAR_CELO_CHAIN_ID,
   GOODDOLLAR_ENV,
@@ -100,6 +104,11 @@ function VerifiedPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
+  const [targetAddress, setTargetAddress] = useState("");
+  const [linkError, setLinkError] = useState<string | null>(null);
+  const [securityMessage, setSecurityMessage] = useState<string | null>(null);
+  const securityResolver = useRef<((accepted: boolean) => void) | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -156,21 +165,36 @@ function VerifiedPanel({
   async function linkWallet() {
     if (!sdk) return;
     setError(null);
-    const target = window.prompt(
-      "Enter the secondary wallet address to link to your GoodDollar identity",
-    );
-    if (!target) return;
+    const target = targetAddress.trim();
+    if (!isAddress(target)) {
+      setLinkError("Enter a valid Ethereum wallet address.");
+      return;
+    }
+    setLinkError(null);
     setLinking(true);
     try {
       await sdk.connectAccount(target as `0x${string}`, {
-        onSecurityMessage: async (msg) => window.confirm(msg),
+        onSecurityMessage: async (msg) =>
+          new Promise<boolean>((resolve) => {
+            securityResolver.current = resolve;
+            setSecurityMessage(msg);
+          }),
       });
+      setLinkDialogOpen(false);
+      setTargetAddress("");
       await refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not link wallet");
     } finally {
       setLinking(false);
     }
+  }
+
+  function respondToSecurityPrompt(accepted: boolean) {
+    const resolve = securityResolver.current;
+    securityResolver.current = null;
+    setSecurityMessage(null);
+    resolve?.(accepted);
   }
 
   if (loading || sdkLoading) {
@@ -223,7 +247,14 @@ function VerifiedPanel({
 
         <div className="flex flex-wrap gap-2">
           {verified ? (
-            <Button variant="outline" onClick={linkWallet} disabled={linking}>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLinkError(null);
+                setLinkDialogOpen(true);
+              }}
+              disabled={linking}
+            >
               {linking ? "Linking…" : "Link another wallet"}
             </Button>
           ) : (
@@ -236,6 +267,77 @@ function VerifiedPanel({
           </Button>
         </div>
       </CardContent>
+
+      <Dialog
+        open={linkDialogOpen}
+        onClose={() => {
+          if (!linking) setLinkDialogOpen(false);
+        }}
+        labelledBy="link-wallet-title"
+      >
+        <div className="space-y-4 p-6">
+          <div>
+            <h2 id="link-wallet-title" className="text-lg font-semibold">
+              Link another wallet
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Add a secondary wallet to your GoodDollar identity. The wallet owner
+              will need to approve the security message.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="secondary-wallet-address">Wallet address</Label>
+            <Input
+              id="secondary-wallet-address"
+              value={targetAddress}
+              onChange={(event) => setTargetAddress(event.target.value)}
+              placeholder="0x…"
+              spellCheck={false}
+              autoComplete="off"
+              disabled={linking}
+            />
+            {linkError ? <p className="text-sm text-destructive">{linkError}</p> : null}
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setLinkDialogOpen(false)}
+              disabled={linking}
+            >
+              Cancel
+            </Button>
+            <Button onClick={() => void linkWallet()} disabled={linking || !targetAddress.trim()}>
+              {linking ? "Linking…" : "Continue"}
+            </Button>
+          </div>
+        </div>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(securityMessage)}
+        onClose={() => respondToSecurityPrompt(false)}
+        labelledBy="security-message-title"
+      >
+        <div className="space-y-4 p-6">
+          <div>
+            <h2 id="security-message-title" className="text-lg font-semibold">
+              Confirm wallet linking
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Review this message carefully before approving it in your wallet.
+            </p>
+          </div>
+          <p className="max-h-48 overflow-y-auto rounded-lg border border-border bg-muted p-3 text-sm whitespace-pre-wrap">
+            {securityMessage}
+          </p>
+          <div className="flex justify-end gap-2">
+            <Button variant="ghost" onClick={() => respondToSecurityPrompt(false)}>
+              Cancel
+            </Button>
+            <Button onClick={() => respondToSecurityPrompt(true)}>Continue</Button>
+          </div>
+        </div>
+      </Dialog>
     </Card>
   );
 }
