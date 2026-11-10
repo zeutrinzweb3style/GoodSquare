@@ -126,6 +126,11 @@ async function QuestDetail({
               </p>
             </div>
           ) : null}
+          <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+            Approving a submission awards EXP — a reputation metric with no
+            monetary value. Token or stablecoin rewards are not automatic: the
+            community issues them from its treasury under Community Rewards.
+          </div>
           <p className="text-xs text-muted-foreground">
             Created {formatDate(quest.created_at)} by{" "}
             <span className="font-mono">{shortenAddress(quest.created_by)}</span>

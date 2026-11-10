@@ -90,6 +90,11 @@ own wallet; the server only verifies the receipt and records it.
   recipient `paid`, and records the treasury transaction.
 - When every recipient is paid or skipped, the distribution completes
   automatically. Duplicate recipients and non-positive amounts are rejected.
+- **Rewards are separate from quests.** Approving a quest submission awards EXP
+  only. It does not create a payout or add a recipient. A community that wants
+  to pay contributors in a token creates a reward distribution and issues it
+  from the treasury. Linking an approved quest to a queued reward recipient is
+  on the roadmap (see below).
 
 ### Developer ecosystem in detail
 
@@ -408,6 +413,15 @@ npm test        # unit tests (node:test)
 - **GoodDollar integration (this release):** optional citizen verification and
   daily G$ UBI claim on Square ID, Celo mainnet only. The claim runs in a modal
   that walks the two-signature (faucet then claim) flow.
+
+### Next
+
+- **Quest → reward link.** Today a quest approval awards EXP only. A planned
+  upgrade lets a quest optionally carry a token amount, so an approved
+  submission queues the contributor as a recipient on a draft reward
+  distribution. It stays non-custodial: a treasury signer still sends the
+  transfer and the server verifies the receipt. This lands after the treasury
+  security review, or on a testnet first.
 
 ## License
 

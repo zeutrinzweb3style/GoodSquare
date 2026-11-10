@@ -44,7 +44,9 @@ export function QuestCard({
             <Badge variant="outline">Verified humans</Badge>
           ) : null}
           <span>
-            {quest.exp_reward > 0 ? `+${quest.exp_reward} EXP` : "No EXP reward"}
+            {quest.exp_reward > 0
+              ? `+${quest.exp_reward} EXP`
+              : "No EXP reward"}
           </span>
           <span>·</span>
           <span>
@@ -61,6 +63,10 @@ export function QuestCard({
             </>
           ) : null}
         </div>
+        <p className="text-xs text-muted-foreground">
+          Approvals award EXP. Token or stablecoin payouts are issued separately
+          by the community from its treasury.
+        </p>
       </CardContent>
     </Card>
   );
