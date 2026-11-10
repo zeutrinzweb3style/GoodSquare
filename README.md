@@ -31,6 +31,7 @@ and public documentation).
 | **Notifications** | ✅ Available | In-app updates for proposals, payments, and rewards |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
 | **Developer ecosystem** | ✅ Available | API keys, rate limiting, webhooks, TypeScript SDK, and docs |
+| **GoodDollar identity & UBI** | ✅ Available (mainnet) | GoodDollar citizen verification and daily G$ claim on Square ID |
 
 Square Treasury and Square Pay are **non-custodial**: the backend never holds a
 key and never sends a transaction. Every on-chain movement is signed by a user's
@@ -112,6 +113,36 @@ own wallet; the server only verifies the receipt and records it.
   runtimes.
 - **Documentation and examples.** [`docs/api.md`](./docs/api.md) is the full API
   reference; runnable examples live in [`sdk/examples`](./sdk/examples).
+
+### GoodDollar identity & UBI in detail
+
+Square ID can verify a wallet as a **GoodDollar citizen** and let it claim its
+daily **G$** Universal Basic Income. This is an optional add-on that lives on the
+Square ID page (`/profile`).
+
+- **Mainnet only.** GoodDollar has no testnet deployment. Its contracts live on
+  Celo mainnet (42220), Fuse (122), and XDC (50); this integration supports Celo
+  mainnet only and stays hidden on every other chain, including Celo Sepolia.
+  The UI shows a "Switch to Celo" prompt instead of silently failing.
+- **Still non-custodial.** The claim is a real mainnet transaction signed by the
+  user's own wallet. The backend never holds a key and never sends anything; it
+  only reads the public identity registry.
+- **Citizen verification.** Unverified wallets hand off to GoodDollar's own face
+  verification flow (`generateFVLink`). Verification stays on GoodDollar.
+- **Wallet linking.** A verified citizen can link secondary wallets
+  (`connectAccount`) so they share one identity and one UBI claim.
+- **Two-signature claim flow.** Claiming can require up to two mainnet
+  transactions: a faucet top-up for gas, then the claim itself. A modal walks the
+  user through both, showing "Step 1 of 2" then "Step 2 of 2" and never hiding
+  the second signature. The step logic lives in `src/lib/gooddollar/claim-flow.ts`
+  (pure, tested in `tests/claim-flow.test.ts`); the modal is
+  `src/components/gooddollar/claim-modal.tsx`.
+- **Read-only status endpoint.** `GET /api/v1/gooddollar/identity?address=…`
+  returns whether an address is a verified citizen and its root identity.
+
+Powered by the official `@goodsdks/citizen-sdk` and `@goodsdks/react-hooks`
+packages. Verified Celo mainnet contract addresses and the environment live in
+`src/lib/gooddollar/config.ts`.
 
 ## Design principles
 
@@ -323,13 +354,14 @@ src/
   components/
     community/           # cards, create form, join/leave
     developer/           # API key and webhook managers
+    gooddollar/          # GoodDollar identity panel, claim card, claim modal
     quest/               # quest card, create form, submit panel, moderation queue
     reputation/          # leaderboard and EXP badges
     governance/          # proposal card, create form, vote panel
     treasury/            # balances, treasury manager
     pay/                 # pay button, payment-request form, pay view
     profile/             # Square ID form
-    ui/                  # accessible primitives (button, card, input, …)
+    ui/                  # accessible primitives (button, card, input, dialog, …)
     wallet/              # connect wallet button
   lib/
     api/                 # response helpers
@@ -341,6 +373,7 @@ src/
     treasury/            # token registry, amounts, verification, spending, service
     pay/                 # payment status rules + service
     developer/           # API keys, rate limiting, webhooks, delivery queue
+    gooddollar/          # GoodDollar config, read-only identity lookup, claim flow
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
@@ -369,6 +402,9 @@ npm test        # unit tests (node:test)
   handling production funds at scale.
 - **Phase 5 — Developer ecosystem (this release):** API keys, rate limiting,
   webhooks, a TypeScript SDK, public documentation, and runnable examples.
+- **GoodDollar integration (this release):** optional citizen verification and
+  daily G$ UBI claim on Square ID, Celo mainnet only. The claim runs in a modal
+  that walks the two-signature (faucet then claim) flow.
 
 ## License
 

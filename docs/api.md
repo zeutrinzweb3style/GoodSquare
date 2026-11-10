@@ -117,6 +117,41 @@ approved terms before marking the proposal executed.
 | GET | `/api/v1/profiles/:address` | public | Public profile |
 | PATCH | `/api/v1/profiles/me` | required | Update your own profile |
 
+## GoodDollar
+
+| Method | Path | Auth | Description |
+| --- | --- | --- | --- |
+| GET | `/api/v1/gooddollar/identity?address=…&chainId=…` | public | GoodDollar citizen status for a wallet |
+
+`GET /api/v1/gooddollar/identity` reads the on-chain GoodDollar identity
+registry. It is read-only and needs no session.
+
+- `address` (required): the wallet to look up.
+- `chainId` (optional): the caller's chain. Anything other than Celo mainnet
+  (`42220`) returns `{ supported: false, reason }`, because GoodDollar has no
+  testnet deployment.
+
+Response when supported:
+
+```json
+{
+  "data": {
+    "supported": true,
+    "chainId": 42220,
+    "address": "0x…",
+    "isWhitelisted": true,
+    "root": "0x…",
+    "lastAuthenticated": 1730000000,
+    "authenticationPeriod": 15552000
+  }
+}
+```
+
+Face verification, wallet linking, and the daily G$ claim happen in the browser
+through `@goodsdks/citizen-sdk`; the claim is a mainnet transaction signed by the
+user's own wallet. Good Square never holds a key. See the GoodDollar section in
+[`README.md`](../README.md) for the flow.
+
 ## Notifications
 
 | Method | Path | Auth | Description |

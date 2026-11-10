@@ -1,4 +1,5 @@
 import { ProfileForm } from "@/components/profile/profile-form";
+import { GoodDollarSection } from "@/components/gooddollar/gooddollar-section";
 
 export const metadata = { title: "Square ID" };
 
@@ -12,6 +13,9 @@ export default function ProfilePage() {
       </p>
       <div className="mt-8">
         <ProfileForm />
+      </div>
+      <div className="mt-8">
+        <GoodDollarSection />
       </div>
     </main>
   );
