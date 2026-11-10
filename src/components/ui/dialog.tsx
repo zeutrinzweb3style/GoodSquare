@@ -20,6 +20,7 @@ export function Dialog({
   children,
   labelledBy,
   className,
+  dismissible = true,
 }: {
   open: boolean;
   onClose: () => void;
@@ -27,6 +28,8 @@ export function Dialog({
   /** id of the element naming the dialog, for screen readers. */
   labelledBy?: string;
   className?: string;
+  /** When false, Escape and backdrop clicks are ignored. */
+  dismissible?: boolean;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
 
@@ -35,6 +38,7 @@ export function Dialog({
     if (!open) return;
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (!dismissible) return;
         event.stopPropagation();
         onClose();
         return;
@@ -59,7 +63,7 @@ export function Dialog({
     }
     document.addEventListener("keydown", onKeyDown, true);
     return () => document.removeEventListener("keydown", onKeyDown, true);
-  }, [open, onClose]);
+  }, [open, onClose, dismissible]);
 
   // Lock background scroll and move focus into the dialog on open.
   React.useEffect(() => {
@@ -80,7 +84,7 @@ export function Dialog({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
-        onClick={onClose}
+        onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
       <div

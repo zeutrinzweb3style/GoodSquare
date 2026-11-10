@@ -156,7 +156,13 @@ export function ClaimModal({
   const remaining = msUntil(nextClaimTime, now);
 
   return (
-    <Dialog open={open} onClose={handleClose} labelledBy="gd-claim-title" className="max-w-[420px]">
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      dismissible={view !== "preparing" && view !== "submitting"}
+      labelledBy="gd-claim-title"
+      className="max-h-[calc(100dvh-2rem)] max-w-[420px] overflow-y-auto"
+    >
       {step ? (
         <div className="px-5 pt-4">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">

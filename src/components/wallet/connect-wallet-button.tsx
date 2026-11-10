@@ -1,32 +1,53 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useAccount, useConnect, useDisconnect } from "wagmi";
+import { useEffect, useRef, useState } from "react";
+import { useAccount, useDisconnect } from "wagmi";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { WalletPickerModal } from "@/components/wallet/wallet-picker-modal";
 import { useAuth } from "@/lib/auth/use-auth";
 import { shortenAddress } from "@/lib/utils";
 
+/**
+ * Header wallet control. Three states: disconnected (opens the picker),
+ * connected but unauthenticated (offers sign-in), and signed in (profile menu).
+ *
+ * Connecting a wallet only proves the wallet is present; the signature is what
+ * proves ownership. So after a successful connect we attempt the sign-in
+ * automatically once, and let the person retry if they dismissed the prompt.
+ */
 export function ConnectWalletButton() {
   const { address, isConnected } = useAccount();
-  const { connect, connectors, isPending: isConnecting } = useConnect();
   const { disconnect } = useDisconnect();
-  const { profile, isAuthenticated, isSigningIn, signIn, signOut, error } =
+  const { profile, isAuthenticated, isLoading, isSigningIn, signIn, signOut, error } =
     useAuth();
   const [showMenu, setShowMenu] = useState(false);
+  const [showPicker, setShowPicker] = useState(false);
+
+  // Track which address we already auto-prompted, so a wallet that rejects the
+  // signature is not asked again on every render.
+  const promptedFor = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isLoading) return; // Wait for the existing session to load first.
+    if (!isConnected || isAuthenticated || !address) return;
+    if (promptedFor.current === address) return;
+    promptedFor.current = address;
+    signIn().catch(() => {
+      // The error surfaces through `error` from useAuth.
+    });
+  }, [isLoading, isConnected, isAuthenticated, address, signIn]);
 
   if (!isConnected) {
-    const injectedConnector = connectors.find((c) => c.id === "injected");
     return (
-      <Button
-        onClick={() =>
-          injectedConnector && connect({ connector: injectedConnector })
-        }
-        disabled={isConnecting || !injectedConnector}
-      >
-        {isConnecting ? "Connecting…" : "Connect Wallet"}
-      </Button>
+      <>
+        <Button onClick={() => setShowPicker(true)}>Connect Wallet</Button>
+        <WalletPickerModal
+          open={showPicker}
+          onClose={() => setShowPicker(false)}
+        />
+      </>
     );
   }
 
@@ -37,10 +58,13 @@ export function ConnectWalletButton() {
           {shortenAddress(address ?? "")}
         </Button>
         <Button onClick={() => signIn()} disabled={isSigningIn}>
-          {isSigningIn ? "Check wallet…" : "Sign in"}
+          {isSigningIn ? "Check wallet…" : "Sign in to continue"}
         </Button>
         {error ? (
-          <span className="hidden text-xs text-destructive sm:inline">
+          <span
+            className="hidden max-w-[16rem] text-xs text-destructive sm:inline"
+            role="alert"
+          >
             {error}
           </span>
         ) : null}

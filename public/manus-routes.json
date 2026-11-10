@@ -1,0 +1,23 @@
+{
+  "routes": [
+    { "path": "/", "title": "Overview" },
+    { "path": "/communities", "title": "Communities" },
+    { "path": "/communities/new", "title": "Create community" },
+    { "path": "/communities/:slug", "title": "Community" },
+    { "path": "/communities/:slug/leaderboard", "title": "Leaderboard" },
+    { "path": "/communities/:slug/moderation", "title": "Moderation" },
+    { "path": "/communities/:slug/pay", "title": "Community pay" },
+    { "path": "/communities/:slug/proposals", "title": "Proposals" },
+    { "path": "/communities/:slug/proposals/:proposalId", "title": "Proposal" },
+    { "path": "/communities/:slug/quests", "title": "Quests" },
+    { "path": "/communities/:slug/quests/:questId", "title": "Quest" },
+    { "path": "/communities/:slug/rewards", "title": "Rewards" },
+    { "path": "/communities/:slug/treasury", "title": "Treasury" },
+    { "path": "/developers", "title": "Developers" },
+    { "path": "/notifications", "title": "Notifications" },
+    { "path": "/pay", "title": "Pay" },
+    { "path": "/pay/:requestId", "title": "Payment request" },
+    { "path": "/profile", "title": "Square ID" },
+    { "path": "/u/:address", "title": "Public profile" }
+  ]
+}

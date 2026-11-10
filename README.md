@@ -191,8 +191,10 @@ Fill in `.env.local`:
 | `NEXT_PUBLIC_CELO_CHAIN_ID` | `42220` (mainnet) or `11142220` (Celo Sepolia) |
 | `NEXT_PUBLIC_CELO_RPC_URL` | Celo mainnet RPC |
 | `NEXT_PUBLIC_CELO_SEPOLIA_RPC_URL` | Celo Sepolia RPC |
+| `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` | Reown project id for WalletConnect (mobile + any browser). Optional — without it only browser-extension wallets work |
 
-Generate a session secret with `openssl rand -base64 48`.
+Generate a session secret with `openssl rand -base64 48`. Get a WalletConnect
+project id (free) at <https://cloud.reown.com>.
 
 ### 3. Apply the database schema
 
@@ -362,7 +364,7 @@ src/
     pay/                 # pay button, payment-request form, pay view
     profile/             # Square ID form
     ui/                  # accessible primitives (button, card, input, dialog, …)
-    wallet/              # connect wallet button
+    wallet/              # connect wallet button + wallet picker modal
   lib/
     api/                 # response helpers
     auth/                # wallet, nonce, session, service, use-auth
@@ -376,6 +378,7 @@ src/
     gooddollar/          # GoodDollar config, read-only identity lookup, claim flow
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
+    wallet/              # wallet picker labels + connect-error copy (pure)
     wagmi/               # Celo chain config + provider
 supabase/migrations/     # SQL schema
 docs/                    # API reference, architecture, deployment
