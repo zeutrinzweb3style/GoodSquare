@@ -127,6 +127,22 @@ on first login.
 verified with a constant-time comparison of their SHA-256 hash, so a leaked
 database row is not usable.
 
+## Wallet connection
+Connecting a wallet and signing in are **two separate steps**: connecting only
+proves the wallet is present, while the signature proves ownership. The header
+control (`src/components/wallet/connect-wallet-button.tsx`) opens a picker when
+disconnected, auto-prompts the sign-in once after a fresh connect (guarded by
+`isLoading` so an existing session wins), and falls back to a manual "Sign in to
+continue" button when the person dismisses or rejects the prompt.
+
+Connectors live in `src/lib/wagmi/config.ts`: `injected()` always, plus
+`walletConnect()` only when `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` is set, so a
+missing id degrades to the browser wallet instead of crashing. `injected()` only
+works in a desktop browser with an extension; phones and in-app browsers need
+WalletConnect. Keep picker labels and connect-error copy in
+`src/lib/wallet/connectors.ts` pure so `tests/wallet-connectors.test.ts` can
+import them directly.
+
 ## Conventions
 - Wallet addresses are stored **lowercase**; use `normalizeAddress` /
   `isValidAddress` from `src/lib/auth/wallet.ts`.
