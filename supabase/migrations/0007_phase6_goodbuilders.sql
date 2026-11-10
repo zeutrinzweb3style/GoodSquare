@@ -1,3 +1,4 @@
+
 -- Good Square — Phase 6 (GoodBuilders Season 5)
 -- Adds the "verified humans only" GoodDollar gate. When a community or a quest
 -- has `verified_only = true`, only wallets the GoodDollar identity registry
