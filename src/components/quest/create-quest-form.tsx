@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { QUEST_CATEGORIES, type QuestCategory } from "@/lib/types";
+import { QUEST_REWARD_TOKENS } from "@/lib/quest/reward";
 
 export function CreateQuestForm({ communityId }: { communityId: string }) {
   const router = useRouter();
@@ -19,6 +20,8 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
   const [category, setCategory] = useState<QuestCategory>("custom");
   const [requirements, setRequirements] = useState("");
   const [rewardInfo, setRewardInfo] = useState("");
+  const [rewardTokenSymbol, setRewardTokenSymbol] = useState("");
+  const [rewardAmount, setRewardAmount] = useState("");
   const [expReward, setExpReward] = useState("0");
   const [deadline, setDeadline] = useState("");
   const [verifiedOnly, setVerifiedOnly] = useState(false);
@@ -67,6 +70,8 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
           category,
           requirements,
           rewardInfo,
+          rewardTokenSymbol,
+          rewardAmount,
           expReward: Number(expReward) || 0,
           deadline: deadline ? new Date(deadline).toISOString() : "",
           status: "active",
@@ -81,6 +86,8 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
       setDescription("");
       setRequirements("");
       setRewardInfo("");
+      setRewardTokenSymbol("");
+      setRewardAmount("");
       setExpReward("0");
       setDeadline("");
       setVerifiedOnly(false);
@@ -150,6 +157,39 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
               <p className="text-xs text-muted-foreground">
                 Awarded automatically when a submission is approved. EXP is a
                 reputation metric, not a currency.
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="quest-reward-token">Reward token</Label>
+              <select
+                id="quest-reward-token"
+                value={rewardTokenSymbol}
+                onChange={(e) => setRewardTokenSymbol(e.target.value)}
+                className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+              >
+                <option value="">No token reward</option>
+                {QUEST_REWARD_TOKENS.map((token) => (
+                  <option key={token} value={token}>
+                    {token}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="quest-reward-amount">Reward amount</Label>
+              <Input
+                id="quest-reward-amount"
+                inputMode="decimal"
+                value={rewardAmount}
+                onChange={(e) => setRewardAmount(e.target.value)}
+                disabled={!rewardTokenSymbol}
+                placeholder="e.g. 5"
+              />
+              <p className="text-xs text-muted-foreground">
+                Queued as a treasury payout when a submission is approved. A
+                treasury signer sends it; Good Square never moves funds.
               </p>
             </div>
           </div>

@@ -160,6 +160,110 @@ export async function createRewardDistribution(input: {
   return distribution;
 }
 
+/**
+ * Queue a contributor as a recipient on their quest's reward distribution. The
+ * distribution is created as a draft the first time and reused afterwards, so
+ * every approved submission for a quest lands in one plan. No funds move: a
+ * treasury signer still sends the transfer and the server verifies the receipt.
+ */
+export async function queueQuestReward(input: {
+  treasury: Treasury;
+  questId: string;
+  questTitle: string;
+  address: string;
+  tokenSymbol: string;
+  /** Amount in base units as a decimal string. */
+  amount: string;
+  createdBy: string;
+}): Promise<RewardRecipient | null> {
+  const recipientAddress = normalizeRewardAddress(input.address);
+
+  const check = canDistribute({
+    status: "draft",
+    treasuryActive: input.treasury.is_active,
+    // The plan is a promise; the balance is checked again when a signer pays.
+    balance: null,
+    recipients: [{ address: recipientAddress, amount: BigInt(input.amount) }],
+  });
+  if (!check.ok) {
+    throw new RewardError(check.reason ?? "Cannot queue the quest reward", "invalid");
+  }
+
+  const supabase = createServiceRoleClient();
+  let distribution = await findOpenQuestDistribution(input.questId);
+
+  if (!distribution) {
+    const { data, error } = await supabase
+      .from("reward_distributions")
+      .insert({
+        treasury_id: input.treasury.id,
+        community_id: input.treasury.community_id,
+        title: `Quest rewards: ${input.questTitle}`.slice(0, 140),
+        token_symbol: input.tokenSymbol,
+        status: "draft",
+        quest_id: input.questId,
+        created_by: normalizeAddress(input.createdBy),
+      })
+      .select("*")
+      .maybeSingle();
+
+    if (error) {
+      // A concurrent approval opened the distribution first.
+      if (error.code === "23505") {
+        distribution = await findOpenQuestDistribution(input.questId);
+      } else {
+        throw error;
+      }
+    } else {
+      distribution = data;
+    }
+  }
+  if (!distribution) {
+    throw new RewardError("Could not open a quest reward distribution", "conflict");
+  }
+
+  const { data: recipient, error: recipientError } = await supabase
+    .from("reward_recipients")
+    .insert({
+      distribution_id: distribution.id,
+      address: recipientAddress,
+      amount: input.amount,
+    })
+    .select("*")
+    .maybeSingle();
+  if (recipientError) throw recipientError;
+
+  await writeAuditLog({
+    actor: normalizeAddress(input.createdBy),
+    action: "quest.reward.queue",
+    entityType: "reward_recipient",
+    entityId: recipient?.id ?? null,
+    communityId: input.treasury.community_id,
+    metadata: {
+      questId: input.questId,
+      distributionId: distribution.id,
+      token: input.tokenSymbol,
+      amount: input.amount,
+    },
+  });
+
+  return recipient;
+}
+
+async function findOpenQuestDistribution(
+  questId: string,
+): Promise<RewardDistribution | null> {
+  const supabase = createServiceRoleClient();
+  const { data, error } = await supabase
+    .from("reward_distributions")
+    .select("*")
+    .eq("quest_id", questId)
+    .in("status", ["draft", "active"])
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 /** Move a distribution through its lifecycle. No funds move here. */
 export async function updateRewardDistribution(
   distribution: RewardDistribution,

@@ -10,6 +10,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { normalizeAddress } from "@/lib/auth/wallet";
 import { createQuestSchema } from "@/lib/validation/schemas";
 import { listQuests } from "@/lib/quest/service";
+import { normalizeQuestReward } from "@/lib/quest/reward";
 import {
   badRequest,
   created,
@@ -96,11 +97,18 @@ export async function POST(
       category,
       requirements,
       rewardInfo,
+      rewardTokenSymbol,
+      rewardAmount,
       expReward,
       deadline,
       status,
       verifiedOnly,
     } = parsed.data;
+
+    const reward = normalizeQuestReward(rewardTokenSymbol, rewardAmount);
+    if (!reward.ok) {
+      return badRequest(reward.reason);
+    }
 
     const supabase = createServiceRoleClient();
     const { data, error } = await supabase
@@ -112,6 +120,8 @@ export async function POST(
         category,
         requirements: requirements || null,
         reward_info: rewardInfo || null,
+        reward_token_symbol: reward.value?.token ?? null,
+        reward_amount: reward.value?.amount ?? null,
         exp_reward: expReward,
         deadline: deadline ? new Date(deadline).toISOString() : null,
         status,

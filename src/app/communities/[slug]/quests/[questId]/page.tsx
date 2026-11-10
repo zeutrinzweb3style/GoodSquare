@@ -84,10 +84,18 @@ async function QuestDetail({
         <Badge variant="outline">{quest.category}</Badge>
       </div>
 
-      <div className="mt-6 grid gap-4 sm:grid-cols-3">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="EXP reward"
           value={quest.exp_reward > 0 ? `+${quest.exp_reward}` : "None"}
+        />
+        <Stat
+          label="Token reward"
+          value={
+            quest.reward_token_symbol && quest.reward_amount
+              ? `${quest.reward_amount} ${quest.reward_token_symbol}`
+              : "None"
+          }
         />
         <Stat label="Approved" value={approvedCount ?? 0} />
         <Stat
@@ -127,9 +135,9 @@ async function QuestDetail({
             </div>
           ) : null}
           <div className="rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-            Approving a submission awards EXP — a reputation metric with no
-            monetary value. Token or stablecoin rewards are not automatic: the
-            community issues them from its treasury under Community Rewards.
+            {quest.reward_token_symbol && quest.reward_amount
+              ? `Approving a submission awards EXP and queues a ${quest.reward_amount} ${quest.reward_token_symbol} payout. A treasury signer sends it from the community wallet; Good Square never moves funds.`
+              : "Approving a submission awards EXP — a reputation metric with no monetary value. Token or stablecoin rewards are not automatic: the community issues them from its treasury under Community Rewards."}
           </div>
           <p className="text-xs text-muted-foreground">
             Created {formatDate(quest.created_at)} by{" "}
@@ -143,6 +151,11 @@ async function QuestDetail({
           questId={quest.id}
           isMember={Boolean(role)}
           questStatus={quest.status}
+          rewardLabel={
+            quest.reward_token_symbol && quest.reward_amount
+              ? `${quest.reward_amount} ${quest.reward_token_symbol}`
+              : null
+          }
           existing={
             existing
               ? {
@@ -151,6 +164,7 @@ async function QuestDetail({
                   proof_url: existing.proof_url,
                   proof_text: existing.proof_text,
                   review_note: existing.review_note,
+                  reward_queued: Boolean(existing.reward_recipient_id),
                 }
               : null
           }

@@ -3,6 +3,12 @@ import { normalizeAddress } from "@/lib/auth/wallet";
 import { writeAuditLog } from "@/lib/community/service";
 import { recordReputationEvent } from "@/lib/reputation/service";
 import { emitWebhookEvent } from "@/lib/developer/webhook-service";
+import { notify } from "@/lib/notifications/service";
+import { queueQuestReward } from "@/lib/rewards/service";
+import { getTreasuryByCommunity } from "@/lib/treasury/service";
+import { getToken, isPayable } from "@/lib/treasury/tokens";
+import { parseAmount, formatAmount } from "@/lib/treasury/amounts";
+import { questRewardDecision } from "@/lib/quest/reward";
 import type { Quest } from "@/lib/types";
 
 export async function getQuestById(questId: string): Promise<Quest | null> {
@@ -82,7 +88,7 @@ export async function listCommunitySubmissions(
   let query = supabase
     .from("quest_submissions")
     .select(
-      "*, profiles:address (username, display_name, avatar_url), quests:quest_id (title, exp_reward)",
+      "*, profiles:address (username, display_name, avatar_url), quests:quest_id (title, exp_reward, reward_token_symbol, reward_amount)",
     )
     .eq("community_id", communityId)
     .order("created_at", { ascending: true })
@@ -209,6 +215,18 @@ export async function reviewSubmission(entry: {
     });
   }
 
+  let reward: { token: string; amount: string; recipientId: string } | null = null;
+  let rewardSkipped: string | null = null;
+  if (entry.decision === "approved" && quest) {
+    const queued = await queueRewardForApproval({
+      quest: quest as Quest,
+      submission: updated,
+      reviewer,
+    });
+    reward = queued.reward;
+    rewardSkipped = queued.skipped;
+  }
+
   await writeAuditLog({
     actor: reviewer,
     action: `quest.${entry.decision}`,
@@ -232,5 +250,106 @@ export async function reviewSubmission(entry: {
     });
   }
 
-  return { submission: updated, quest: quest as Quest | null } as const;
+  return {
+    submission: updated,
+    quest: quest as Quest | null,
+    reward,
+    rewardSkipped,
+  } as const;
+}
+
+/**
+ * Queue the promised token reward for an approved submission. Never throws: a
+ * missing treasury or an unpayable token skips the payout and the approval —
+ * which already awarded EXP — still succeeds.
+ */
+async function queueRewardForApproval(input: {
+  quest: Quest;
+  submission: { id: string; community_id: string; address: string };
+  reviewer: string;
+}): Promise<{
+  reward: { token: string; amount: string; recipientId: string } | null;
+  skipped: string | null;
+}> {
+  const { quest, submission, reviewer } = input;
+  try {
+    const treasury = await getTreasuryByCommunity(submission.community_id);
+    const token = treasury
+      ? getToken(treasury.chain_id, quest.reward_token_symbol)
+      : null;
+
+    const decision = questRewardDecision({
+      token: quest.reward_token_symbol,
+      amount: quest.reward_amount,
+      treasuryActive: Boolean(treasury?.is_active),
+      tokenPayable: Boolean(treasury && isPayable(treasury.chain_id, quest.reward_token_symbol)),
+    });
+
+    if (decision.action === "none") return { reward: null, skipped: null };
+    if (decision.action === "skip") {
+      console.error("quest reward skipped", {
+        questId: quest.id,
+        reason: decision.reason,
+      });
+      return { reward: null, skipped: decision.reason };
+    }
+
+    const decimals = token?.decimals ?? 18;
+    const amount = parseAmount(quest.reward_amount!, decimals);
+    if (amount === null || amount <= 0n) {
+      return { reward: null, skipped: "Reward amount is not valid for the token" };
+    }
+
+    const recipient = await queueQuestReward({
+      treasury: treasury!,
+      questId: quest.id,
+      questTitle: quest.title,
+      address: submission.address,
+      tokenSymbol: quest.reward_token_symbol!,
+      amount: amount.toString(),
+      createdBy: reviewer,
+    });
+
+    const supabase = createServiceRoleClient();
+    await supabase
+      .from("quest_submissions")
+      .update({ reward_recipient_id: recipient?.id ?? null })
+      .eq("id", submission.id);
+
+    await notify({
+      address: submission.address,
+      type: "quest.reward.queued",
+      title: "Quest reward queued",
+      body: `${quest.title}: ${formatAmount(amount, decimals)} ${quest.reward_token_symbol} will be paid from the community treasury.`,
+      entityType: "reward_recipient",
+      entityId: recipient?.id ?? null,
+      communityId: submission.community_id,
+    });
+
+    await emitWebhookEvent({
+      event: "quest.reward_queued",
+      communityId: submission.community_id,
+      address: submission.address,
+      data: {
+        communityId: submission.community_id,
+        questId: quest.id,
+        submissionId: submission.id,
+        address: submission.address,
+        tokenSymbol: quest.reward_token_symbol,
+        amount: amount.toString(),
+      },
+    });
+
+    return {
+      reward: {
+        token: quest.reward_token_symbol!,
+        amount: formatAmount(amount, decimals),
+        recipientId: recipient?.id ?? "",
+      },
+      skipped: null,
+    };
+  } catch (error) {
+    console.error("queue quest reward error", error);
+    return { reward: null, skipped: "The reward could not be queued" };
+  }
 }

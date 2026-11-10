@@ -90,11 +90,10 @@ own wallet; the server only verifies the receipt and records it.
   recipient `paid`, and records the treasury transaction.
 - When every recipient is paid or skipped, the distribution completes
   automatically. Duplicate recipients and non-positive amounts are rejected.
-- **Rewards are separate from quests.** Approving a quest submission awards EXP
-  only. It does not create a payout or add a recipient. A community that wants
-  to pay contributors in a token creates a reward distribution and issues it
-  from the treasury. Linking an approved quest to a queued reward recipient is
-  on the roadmap (see below).
+- **Rewards and quests.** Approving a quest submission always awards EXP. If
+  the quest promises a token amount, the approval also queues the contributor as
+  a recipient on that quest's reward distribution, which a signer then pays. A
+  quest with no token reward awards EXP only and creates no payout.
 
 ### Developer ecosystem in detail
 
@@ -213,6 +212,8 @@ supabase/migrations/0003_phase3_governance.sql
 supabase/migrations/0004_phase4_financial.sql
 supabase/migrations/0005_phase4_financial_completion.sql
 supabase/migrations/0006_phase5_developer.sql
+supabase/migrations/0007_phase6_goodbuilders.sql
+supabase/migrations/0008_quest_rewards.sql
 ```
 
 They create `profiles`, `communities`, `community_members`, `auth_nonces`,
@@ -416,12 +417,11 @@ npm test        # unit tests (node:test)
 
 ### Next
 
-- **Quest → reward link.** Today a quest approval awards EXP only. A planned
-  upgrade lets a quest optionally carry a token amount, so an approved
-  submission queues the contributor as a recipient on a draft reward
-  distribution. It stays non-custodial: a treasury signer still sends the
-  transfer and the server verifies the receipt. This lands after the treasury
-  security review, or on a testnet first.
+- **Quest → reward link (this release).** A quest can optionally promise a
+  token amount. Approving a submission queues the contributor as a recipient on
+  a draft reward distribution for that quest, which a treasury signer then pays
+  and the server verifies. It stays non-custodial: Good Square records the plan
+  and never sends funds. A quest with no token reward keeps awarding EXP only.
 
 ## License
 

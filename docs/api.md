@@ -69,6 +69,13 @@ that act on behalf of a wallet accept either credential.
 | GET | `/api/v1/quests/:id/submissions` | required | List submissions (moderators) |
 | POST | `/api/v1/quests/:id/submissions` | required | Submit proof for a quest |
 
+A quest may carry an optional `rewardTokenSymbol` and `rewardAmount` (a human
+decimal string). When a moderator approves a submission for such a quest, the
+contributor is queued as a recipient on that quest's reward distribution and a
+`quest.reward_queued` event fires. No funds move: a treasury signer sends the
+transfer and the server verifies the receipt. A quest without a token reward
+awards EXP only.
+
 ## Reputation
 
 | Method | Path | Auth | Description |
@@ -178,8 +185,9 @@ user's own wallet. Good Square never holds a key. See the GoodDollar section in
 ### Events
 
 `community.created`, `member.joined`, `quest.submitted`, `quest.approved`,
-`proposal.created`, `proposal.closed`, `vote.cast`, `payment.received`,
-`treasury.spending.approved`, `treasury.spending.executed`, `reward.paid`.
+`quest.reward_queued`, `proposal.created`, `proposal.closed`, `vote.cast`,
+`payment.received`, `treasury.spending.approved`, `treasury.spending.executed`,
+`reward.paid`.
 
 ### Delivery
 

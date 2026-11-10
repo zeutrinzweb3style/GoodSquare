@@ -60,8 +60,9 @@ async function ModerationView({
         Moderation queue
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Approving a submission awards the quest&apos;s EXP reward once. Rewards
-        are never transferred automatically.
+        Approving a submission awards the quest&apos;s EXP reward once. If the
+        quest promises a token, approving also queues a treasury payout for a
+        signer to send — Good Square never transfers funds itself.
       </p>
 
       <div className="mt-8">
