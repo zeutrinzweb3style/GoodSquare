@@ -2,6 +2,7 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies, headers } from "next/headers";
 import { parseAuthorizationHeader } from "@/lib/developer/api-keys";
 import { authenticateApiKey } from "@/lib/developer/api-key-service";
+import { MIN_SESSION_SECRET_LENGTH } from "@/lib/auth/session-secret";
 
 export const SESSION_COOKIE = "gs_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -15,7 +16,7 @@ export interface SessionPayload {
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) {
+  if (!secret || secret.length < MIN_SESSION_SECRET_LENGTH) {
     throw new Error(
       "SESSION_SECRET must be set to a random string of at least 32 characters",
     );

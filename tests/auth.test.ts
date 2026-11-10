@@ -9,6 +9,10 @@ import {
   buildSiweMessage,
   generateNonce,
 } from "../src/lib/auth/nonce.ts";
+import {
+  isSessionSecretConfigured,
+  MIN_SESSION_SECRET_LENGTH,
+} from "../src/lib/auth/session-secret.ts";
 
 const ADDRESS = "0x52908400098527886E0F7030069857D2E4169EE7";
 
@@ -57,4 +61,22 @@ test("buildSiweMessage binds address, nonce, and timestamp", () => {
   assert.match(message, /Nonce: abc123/);
   assert.match(message, /Issued At: 2026-01-01T00:00:00\.000Z/);
   assert.match(message, /will not trigger a blockchain transaction/);
+});
+
+test("isSessionSecretConfigured rejects a missing or short secret", () => {
+  assert.equal(isSessionSecretConfigured(undefined), false);
+  assert.equal(isSessionSecretConfigured(""), false);
+  assert.equal(isSessionSecretConfigured("too-short"), false);
+  assert.equal(
+    isSessionSecretConfigured("a".repeat(MIN_SESSION_SECRET_LENGTH - 1)),
+    false,
+  );
+});
+
+test("isSessionSecretConfigured accepts a long enough secret", () => {
+  assert.equal(
+    isSessionSecretConfigured("a".repeat(MIN_SESSION_SECRET_LENGTH)),
+    true,
+  );
+  assert.equal(isSessionSecretConfigured("a".repeat(64)), true);
 });

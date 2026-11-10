@@ -2,10 +2,23 @@ import { NextResponse, type NextRequest } from "next/server";
 import { verifyLoginSchema } from "@/lib/validation/schemas";
 import { verifyLogin, AuthError } from "@/lib/auth/service";
 import { createSessionToken, SESSION_COOKIE, sessionCookieOptions } from "@/lib/auth/session";
+import { isSessionSecretConfigured } from "@/lib/auth/session-secret";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { badRequest, serverError, unauthorized, validationError } from "@/lib/api/response";
 
 export async function POST(request: NextRequest) {
+  // Fail fast, before the wallet is asked to sign, when the server cannot mint
+  // a session. Otherwise the nonce is consumed and the user still gets no
+  // session — an opaque failure that is hard to diagnose from the client.
+  if (!isSessionSecretConfigured()) {
+    console.error(
+      "auth/verify: SESSION_SECRET is missing or shorter than 32 characters",
+    );
+    return serverError(
+      "Sign-in is unavailable: SESSION_SECRET must be set to a random string of at least 32 characters.",
+    );
+  }
+
   let body: unknown;
   try {
     body = await request.json();
