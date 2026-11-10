@@ -43,34 +43,60 @@ const MODULES = [
 ];
 
 const STEPS = [
-  "Connect a Celo-compatible wallet",
-  "Sign a message to prove wallet ownership",
-  "Create your Square ID profile",
-  "Create or join a community",
+  "Connect a Celo wallet — your keys never leave it",
+  "Sign once to prove the wallet is yours",
+  "Mint your Square ID profile",
+  "Launch or join a community on-chain",
 ];
 
 export default function Home() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-16">
-      <section className="flex flex-col items-start gap-6">
-        <Badge variant="outline">Open-source · Built on Celo</Badge>
+      <section className="gs-rise flex flex-col items-start gap-6">
+        <Badge variant="outline" className="border-primary/30 bg-accent/60">
+          <span className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-primary" />
+          Open-source · Built on Celo
+        </Badge>
         <h1 className="max-w-3xl text-4xl font-semibold tracking-tight sm:text-5xl">
-          One infrastructure. Unlimited communities.
+          One infrastructure.{" "}
+          <span className="gs-brand-gradient bg-clip-text text-transparent">
+            Unlimited communities.
+          </span>
         </h1>
         <p className="max-w-2xl text-lg text-muted-foreground">
           Good Square is open-source, modular community infrastructure on Celo.
           Instead of every project rebuilding membership, contribution tracking,
-          reputation, and payments, Good Square provides interoperable
-          components that work together or on their own.
+          reputation, and payments, Good Square ships interoperable on-chain
+          primitives — claim G$ UBI, run a treasury, pay contributors, and grow
+          communities — that work together or on their own.
         </p>
         <div className="flex flex-wrap gap-3">
-          <Button asChild>
+          <Button
+            asChild
+            className="gs-brand-gradient text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+          >
             <Link href="/communities">Explore communities</Link>
           </Button>
           <Button variant="outline" asChild>
             <Link href="/communities/new">Create a community</Link>
           </Button>
         </div>
+        <dl className="mt-2 grid w-full grid-cols-2 gap-4 sm:grid-cols-4">
+          {[
+            ["Non-custodial", "Your keys, your funds"],
+            ["On-chain", "Celo mainnet"],
+            ["GoodDollar", "Daily G$ UBI"],
+            ["Open-source", "Modular by design"],
+          ].map(([label, detail]) => (
+            <div
+              key={label}
+              className="rounded-xl border border-border bg-card/60 px-4 py-3"
+            >
+              <dt className="text-sm font-semibold">{label}</dt>
+              <dd className="text-xs text-muted-foreground">{detail}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
       <section className="mt-16">
@@ -79,9 +105,10 @@ export default function Home() {
           {STEPS.map((step, index) => (
             <li
               key={step}
-              className="rounded-xl border border-border bg-card p-4 text-sm"
+              className="gs-rise gs-hover-lift rounded-xl border border-border bg-card p-4 text-sm"
+              style={{ animationDelay: `${index * 70}ms` }}
             >
-              <span className="mb-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">
+              <span className="gs-brand-gradient mb-2 flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold text-primary-foreground">
                 {index + 1}
               </span>
               {step}
@@ -96,7 +123,7 @@ export default function Home() {
         </h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {MODULES.map((module) => (
-            <Card key={module.name}>
+            <Card key={module.name} className="gs-hover-lift gs-surface">
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle>{module.name}</CardTitle>
@@ -117,7 +144,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mt-16 rounded-2xl border border-border bg-accent/40 p-8">
+      <section className="gs-glow mt-16 rounded-2xl border border-primary/20 bg-accent/40 p-8">
         <h2 className="text-xl font-semibold tracking-tight">
           Non-custodial by design
         </h2>

@@ -13,15 +13,19 @@ export default function CommunitiesPage() {
   return (
     <main className="mx-auto w-full max-w-6xl px-4 py-12">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div className="gs-rise">
           <h1 className="text-2xl font-semibold tracking-tight">
             Explore Communities
           </h1>
           <p className="text-sm text-muted-foreground">
-            Public communities building on Good Square.
+            On-chain communities building on Good Square. Join with a wallet —
+            no sign-up.
           </p>
         </div>
-        <Button asChild>
+        <Button
+          asChild
+          className="gs-brand-gradient text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+        >
           <Link href="/communities/new">Create a community</Link>
         </Button>
       </div>

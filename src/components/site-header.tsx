@@ -24,10 +24,10 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur">
+    <header className="sticky top-0 z-30 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-3 px-4 py-2">
-        <Link href="/" className="flex min-w-0 shrink-0 items-center gap-2" onClick={closeMobileMenu}>
-          <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
+        <Link href="/" className="group flex min-w-0 shrink-0 items-center gap-2" onClick={closeMobileMenu}>
+          <span className="gs-brand-gradient flex h-8 w-8 items-center justify-center rounded-lg text-sm font-bold text-primary-foreground shadow-md shadow-primary/30 transition-transform group-hover:scale-105">
             GS
           </span>
           <span className="hidden text-sm font-semibold tracking-tight sm:inline">

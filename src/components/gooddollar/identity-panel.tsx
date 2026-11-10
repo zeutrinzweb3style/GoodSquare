@@ -5,6 +5,7 @@ import { isAddress } from "viem";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { celo } from "wagmi/chains";
 import { useIdentitySDK } from "@goodsdks/react-hooks";
+import { ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -20,7 +21,7 @@ import {
   unsupportedChainReason,
 } from "@/lib/gooddollar/config";
 import { openVerificationPopup, runInAppVerification } from "@/lib/gooddollar/verify-session";
-import { shortenAddress } from "@/lib/utils";
+import { cn, shortenAddress } from "@/lib/utils";
 
 interface IdentityStatusResponse {
   supported: boolean;
@@ -220,10 +221,16 @@ function VerifiedPanel({
   }
 
   return (
-    <Card>
+    <Card className={cn("gs-surface overflow-hidden", verified && "gs-glow")}>
+      <div className="gs-hairline h-px" />
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>GoodDollar identity</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent text-accent-foreground">
+              <ShieldCheck className="h-4 w-4" />
+            </span>
+            GoodDollar identity
+          </CardTitle>
           {verified ? (
             <Badge variant="secondary">Verified citizen</Badge>
           ) : (
@@ -235,8 +242,8 @@ function VerifiedPanel({
         {verified ? (
           <div className="space-y-2 text-sm">
             <p className="text-muted-foreground">
-              This wallet is verified as a GoodDollar citizen and can claim G$
-              once per day.
+              This wallet is a verified GoodDollar citizen — proof of personhood
+              on-chain. Claim your daily G$ UBI below.
             </p>
             <p>
               Root identity:{" "}
@@ -252,8 +259,9 @@ function VerifiedPanel({
           </div>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Verify your wallet once with GoodDollar&apos;s face verification to
-            become a citizen. Verification is free and stays on GoodDollar.
+            Prove you&apos;re human once with GoodDollar&apos;s face check to
+            unlock G$ UBI. It&apos;s free and stays on GoodDollar — Good Square
+            never sees your data.
           </p>
         )}
 

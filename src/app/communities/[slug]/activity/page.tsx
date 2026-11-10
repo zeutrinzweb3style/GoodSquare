@@ -45,11 +45,11 @@ async function ActivityDetail({
   return (
     <main className="mx-auto w-full max-w-4xl px-4 py-12">
       <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
+        <div className="gs-rise">
           <p className="text-sm text-muted-foreground">
             <Link
               href={`/communities/${community.slug}`}
-              className="hover:underline"
+              className="transition-colors hover:text-primary"
             >
               {community.name}
             </Link>
@@ -67,13 +67,13 @@ async function ActivityDetail({
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
-        <Metric label="G$ volume" value={`${g(activity.volume)} G$`} />
+        <Metric label="G$ volume" value={`${g(activity.volume)} G$`} accent />
         <Metric label="Transactions" value={activity.transactions} />
         <Metric label="Unique wallets" value={activity.uniqueWallets} />
       </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Card>
+        <Card className="gs-surface">
           <CardHeader>
             <CardTitle className="text-base">Payments</CardTitle>
           </CardHeader>
@@ -88,7 +88,7 @@ async function ActivityDetail({
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="gs-surface">
           <CardHeader>
             <CardTitle className="text-base">Contributor rewards</CardTitle>
           </CardHeader>
@@ -105,7 +105,7 @@ async function ActivityDetail({
           </CardContent>
         </Card>
 
-        <Card className="sm:col-span-2">
+        <Card className="gs-surface sm:col-span-2">
           <CardHeader>
             <CardTitle className="text-base">Treasury flow</CardTitle>
           </CardHeader>
@@ -138,14 +138,34 @@ async function ActivityDetail({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string | number }) {
+function Metric({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string | number;
+  accent?: boolean;
+}) {
   return (
-    <Card>
+    <Card
+      className={
+        accent ? "gs-surface gs-glow gs-hover-lift" : "gs-surface gs-hover-lift"
+      }
+    >
       <CardContent className="pt-6">
         <p className="text-xs uppercase tracking-wide text-muted-foreground">
           {label}
         </p>
-        <p className="mt-1 text-lg font-semibold">{value}</p>
+        <p
+          className={
+            accent
+              ? "gs-sheen-text mt-1 text-2xl font-bold tracking-tight tabular-nums"
+              : "mt-1 text-2xl font-bold tracking-tight tabular-nums"
+          }
+        >
+          {value}
+        </p>
       </CardContent>
     </Card>
   );

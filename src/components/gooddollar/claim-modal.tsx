@@ -10,6 +10,7 @@ import {
   ExternalLink,
   Loader2,
   ShieldCheck,
+  Sparkles,
   Wallet,
   XCircle,
 } from "lucide-react";
@@ -205,46 +206,37 @@ export function ClaimModal({
       onClose={handleClose}
       dismissible={view !== "preparing" && view !== "submitting"}
       labelledBy="gd-claim-title"
-      className="max-h-[calc(100dvh-2rem)] max-w-[420px] overflow-y-auto"
+      className="max-h-[calc(100dvh-2rem)] max-w-[430px] overflow-y-auto"
     >
-      {step ? (
-        <div className="px-5 pt-4">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-            Step {step.step} of {step.total} · {step.label}
-          </p>
-          <div className="mt-2 flex gap-1.5">
-            {Array.from({ length: step.total }).map((_, i) => (
-              <span
-                key={i}
-                className={cn(
-                  "h-1.5 flex-1 rounded-full",
-                  i < step.step - 1
-                    ? "bg-primary/40"
-                    : i === step.step - 1
-                      ? "bg-primary"
-                      : "bg-muted",
-                )}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
+      <Hero view={view} step={step} />
 
-      <div className="flex items-start gap-3 p-5 pb-3">
+      <div className="flex items-start gap-3 px-5 pb-3">
         <span
           className={cn(
-            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
-            view === "success" && "bg-accent text-accent-foreground",
+            "relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl border",
+            view === "success" &&
+              "border-primary/40 bg-accent text-accent-foreground gs-pop",
             (view === "failed" || view === "declined") &&
-              "bg-destructive/10 text-destructive",
-            (view === "confirming" || view === "wrong_chain" || view === "not_verified") &&
-              "bg-muted text-foreground",
-            (view === "intro" || view === "preparing" || view === "submitting") &&
-              "bg-accent text-accent-foreground",
-            view === "verifying" && "bg-muted text-foreground",
-            view === "already_claimed" && "bg-muted text-muted-foreground",
+              "border-destructive/30 bg-destructive/10 text-destructive",
+            (view === "confirming" ||
+              view === "wrong_chain" ||
+              view === "not_verified") &&
+              "border-border bg-muted text-foreground",
+            (view === "intro" ||
+              view === "preparing" ||
+              view === "submitting") &&
+              "border-primary/30 bg-accent text-accent-foreground",
+            view === "verifying" && "border-primary/30 bg-muted text-foreground",
+            view === "already_claimed" &&
+              "border-border bg-muted text-muted-foreground",
           )}
         >
+          {(view === "intro" ||
+            view === "preparing" ||
+            view === "submitting" ||
+            view === "success") && (
+            <span className="gs-ring absolute inset-0 rounded-2xl border border-primary/40" />
+          )}
           <HeaderIcon view={view} />
         </span>
         <div className="min-w-0 flex-1">
@@ -296,6 +288,68 @@ export function ClaimModal({
   );
 }
 
+/** Decorative top band: brand wash, floating glow, and the step progress. */
+function Hero({
+  view,
+  step,
+}: {
+  view: ClaimViewKind;
+  step: ReturnType<typeof claimStepInfo>;
+}) {
+  const celebrating = view === "success";
+  return (
+    <div className="relative h-24 overflow-hidden">
+      <div className="absolute inset-0 gs-surface" />
+      <div className="gs-float absolute -right-8 -top-12 h-40 w-40 rounded-full bg-primary/25 blur-3xl" />
+      <div className="absolute -left-10 top-6 h-28 w-28 rounded-full bg-gold/20 blur-3xl" />
+      {celebrating ? (
+        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center gap-4">
+          {[0, 0.25, 0.5].map((delay) => (
+            <span
+              key={delay}
+              className="gs-coin text-lg"
+              style={{ animationDelay: `${delay}s` }}
+            >
+              🪙
+            </span>
+          ))}
+        </div>
+      ) : null}
+      <div className="gs-hairline absolute inset-x-0 bottom-0 h-px" />
+      {step ? (
+        <div className="absolute inset-x-5 bottom-3">
+          <div className="flex items-center justify-between text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <span>
+              Step {step.step} of {step.total}
+            </span>
+            <span>{step.label}</span>
+          </div>
+          <div className="mt-2 flex gap-1.5">
+            {Array.from({ length: step.total }).map((_, i) => (
+              <span
+                key={i}
+                className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted"
+              >
+                {i <= step.step - 1 ? (
+                  <span
+                    key={`${step.step}-${i}`}
+                    className="gs-progress gs-brand-gradient block h-full rounded-full"
+                  />
+                ) : null}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="absolute inset-x-5 bottom-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          GoodDollar UBI · Celo mainnet
+        </div>
+      )}
+    </div>
+  );
+}
+
 function HeaderIcon({ view }: { view: ClaimViewKind }) {
   switch (view) {
     case "success":
@@ -324,23 +378,23 @@ function titleFor(view: ClaimViewKind): string {
     case "intro":
       return "Claim your daily G$";
     case "verifying":
-      return "Verifying your identity";
+      return "Proving you're human";
     case "confirming":
-      return "One more signature";
+      return "One signature to go";
     case "preparing":
       return "Preparing your claim";
     case "submitting":
-      return "Claiming your G$";
+      return "Sending your G$";
     case "success":
-      return "Claimed!";
+      return "G$ claimed";
     case "declined":
       return "Top-up cancelled";
     case "failed":
-      return "Claim didn't go through";
+      return "Claim didn't land";
     case "already_claimed":
       return "Already claimed today";
     case "not_verified":
-      return "Verify your identity first";
+      return "Verify to unlock G$";
     case "wrong_chain":
       return "Switch to Celo";
   }
@@ -349,27 +403,27 @@ function titleFor(view: ClaimViewKind): string {
 function subtitleFor(view: ClaimViewKind): string {
   switch (view) {
     case "intro":
-      return "GoodDollar UBI · Celo mainnet";
+      return "Free daily UBI, straight to your wallet.";
     case "verifying":
-      return "Complete the check in the window that opened.";
+      return "Finish the face check in the GoodID window.";
     case "confirming":
-      return "Confirm in your wallet to continue.";
+      return "Approve in your wallet and the claim runs itself.";
     case "preparing":
-      return "Check your wallet to approve the next step.";
+      return "Open your wallet to approve the next step.";
     case "submitting":
-      return "Broadcast. Waiting for confirmation on Celo.";
+      return "Broadcast. Waiting for Celo to confirm.";
     case "success":
-      return "Your daily G$ is on its way to your wallet.";
+      return "Your G$ is on its way on-chain.";
     case "declined":
-      return "Nothing was claimed and nothing was charged.";
+      return "Nothing claimed, nothing charged.";
     case "failed":
-      return "You can safely try again.";
+      return "Safe to try again — no funds moved.";
     case "already_claimed":
-      return "Come back tomorrow — UBI resets daily.";
+      return "UBI resets daily. Come back tomorrow.";
     case "not_verified":
-      return "Only verified GoodDollar citizens can claim G$.";
+      return "GoodDollar citizens only. One-time face check.";
     case "wrong_chain":
-      return "GoodDollar runs on Celo mainnet only — there is no testnet.";
+      return "GoodDollar lives on Celo mainnet only — no testnet.";
   }
 }
 
@@ -394,13 +448,15 @@ function Body({
     case "intro":
       return (
         <>
-          <div className="text-center">
-            <p className="text-4xl font-bold tracking-tight">
-              {formatUnits(entitlement)}
-              <span className="ml-2 text-base font-semibold text-muted-foreground">G$</span>
+          <div className="gs-rise relative overflow-hidden rounded-2xl border border-gold/30 bg-gold-soft/60 px-4 py-6 text-center">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-gold-foreground/80">
+              Available to claim now
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Available to claim right now
+            <p className="gs-sheen-text mt-1 text-4xl font-bold tracking-tight tabular-nums">
+              {formatUnits(entitlement)}
+            </p>
+            <p className="mt-1 text-sm font-medium text-gold-foreground">
+              G$ per day, every day
             </p>
           </div>
           <KeyValue
@@ -452,9 +508,11 @@ function Body({
     case "success":
       return (
         <>
-          <div className="text-center">
-            <p className="text-4xl font-bold tracking-tight text-primary">+{amount}</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+          <div className="gs-rise relative overflow-hidden rounded-2xl border border-primary/30 bg-accent px-4 py-6 text-center">
+            <p className="gs-pop text-4xl font-bold tracking-tight tabular-nums">
+              +{amount}
+            </p>
+            <p className="mt-1 text-sm text-accent-foreground/80">
               Next claim opens in {formatCountdown(remaining)}
             </p>
           </div>
@@ -487,7 +545,7 @@ function Body({
     case "already_claimed":
       return (
         <>
-          <div className="text-center">
+          <div className="rounded-2xl border border-border bg-muted/60 px-4 py-6 text-center">
             <p className="text-4xl font-bold tracking-tight tabular-nums">
               {formatCountdown(remaining)}
             </p>
@@ -565,7 +623,10 @@ function Footer({
           <Button variant="outline" className="flex-1" onClick={onClose}>
             Not now
           </Button>
-          <Button className="flex-1" onClick={onStartClaim}>
+          <Button
+            className="gs-brand-gradient flex-1 text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
+            onClick={onStartClaim}
+          >
             Claim {amount}
           </Button>
         </>
@@ -699,7 +760,7 @@ function Note({
         "rounded-xl border px-3.5 py-2.5 text-sm",
         tone === "muted" && "border-border bg-muted text-secondary-foreground",
         tone === "ok" && "border-primary/20 bg-accent text-accent-foreground",
-        tone === "warn" && "border-amber-300/60 bg-amber-50 text-amber-900",
+        tone === "warn" && "border-gold/40 bg-gold-soft text-gold-foreground",
         tone === "bad" && "border-destructive/25 bg-destructive/5 text-destructive",
       )}
     >

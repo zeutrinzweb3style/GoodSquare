@@ -37,13 +37,16 @@ async function PayHome() {
 
   return (
     <main className="mx-auto w-full max-w-3xl px-4 py-12">
-      <h1 className="text-2xl font-semibold tracking-tight">Square Pay</h1>
-      <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-        Request and send payments on Celo, wallet to wallet. Good Square is
-        non-custodial: it records and verifies transfers, but never holds funds.
-      </p>
+      <div className="gs-rise">
+        <h1 className="text-2xl font-semibold tracking-tight">Square Pay</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          Request and send payments on Celo, wallet to wallet. Non-custodial by
+          design: Good Square records and verifies transfers on-chain but never
+          holds your funds.
+        </p>
+      </div>
 
-      <section className="mt-8">
+      <section className="mt-8 gs-rise" style={{ animationDelay: "60ms" }}>
         <CreatePaymentRequestForm chainId={chainId} />
       </section>
 

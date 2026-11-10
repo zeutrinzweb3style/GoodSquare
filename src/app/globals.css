@@ -2,72 +2,94 @@
 
 @custom-variant dark (&:where(.dark, .dark *));
 
+/*
+ * Good Square theme — "Celo night garden".
+ *
+ * A deep, low-glare canvas for long sessions, with two brand accents: Celo
+ * green for structure and a warm gold for GoodDollar (G$). Every surface is a
+ * token so light/dark stay in step. Accents are used for fills, rings and
+ * gradients rather than small text on the canvas, so body copy keeps its
+ * contrast in both modes.
+ */
 :root {
-  --radius: 0.75rem;
+  --radius: 0.875rem;
 
-  --background: #ffffff;
-  --foreground: #101915;
+  --background: #f7faf8;
+  --foreground: #0c1611;
 
   --card: #ffffff;
-  --card-foreground: #101915;
+  --card-foreground: #0c1611;
 
   --popover: #ffffff;
-  --popover-foreground: #101915;
+  --popover-foreground: #0c1611;
 
-  --primary: #1f6f4a;
-  --primary-foreground: #f5fbf7;
+  --primary: #15803d;
+  --primary-foreground: #f2fdf6;
 
-  --secondary: #eef3f0;
-  --secondary-foreground: #16241d;
+  --secondary: #eaf2ec;
+  --secondary-foreground: #10201a;
 
-  --muted: #f1f4f2;
-  --muted-foreground: #5c6b64;
+  --muted: #eef3ef;
+  --muted-foreground: #55655d;
 
-  --accent: #e3efe8;
-  --accent-foreground: #123c29;
+  --accent: #dff3e6;
+  --accent-foreground: #0d3d24;
 
   --destructive: #b42318;
   --destructive-foreground: #ffffff;
 
-  --success: #1f6f4a;
-  --success-foreground: #f5fbf7;
+  --success: #15803d;
+  --success-foreground: #f2fdf6;
 
-  --border: #e2e8e4;
-  --input: #e2e8e4;
-  --ring: #2e8b5f;
+  /* GoodDollar gold — G$ value, streaks and highlights. */
+  --gold: #b45309;
+  --gold-soft: #fdf3d8;
+  --gold-foreground: #4a2c05;
+
+  --border: #dfe8e2;
+  --input: #dfe8e2;
+  --ring: #22c55e;
+
+  --glow: 21 128 61;
 }
 
 .dark {
-  --background: #0b120f;
-  --foreground: #eaf1ec;
+  --background: #060d0a;
+  --foreground: #e9f3ec;
 
-  --card: #111a16;
-  --card-foreground: #eaf1ec;
+  --card: #0d1712;
+  --card-foreground: #e9f3ec;
 
-  --popover: #111a16;
-  --popover-foreground: #eaf1ec;
+  --popover: #0d1712;
+  --popover-foreground: #e9f3ec;
 
-  --primary: #4cae7e;
-  --primary-foreground: #06110c;
+  --primary: #34d399;
+  --primary-foreground: #04160d;
 
-  --secondary: #1a2621;
-  --secondary-foreground: #eaf1ec;
+  --secondary: #13201a;
+  --secondary-foreground: #e9f3ec;
 
-  --muted: #16211c;
-  --muted-foreground: #9db0a7;
+  --muted: #101c16;
+  --muted-foreground: #9cb2a6;
 
-  --accent: #1c2c24;
-  --accent-foreground: #c9e6d7;
+  --accent: #14301f;
+  --accent-foreground: #c7f5da;
 
   --destructive: #f97066;
   --destructive-foreground: #1a0705;
 
-  --success: #4cae7e;
-  --success-foreground: #06110c;
+  --success: #34d399;
+  --success-foreground: #04160d;
 
-  --border: #223029;
-  --input: #223029;
-  --ring: #4cae7e;
+  --gold: #fbbf24;
+  --gold-soft: #2a2110;
+  --gold-foreground: #fde8b0;
+
+  --border: #1d2f26;
+  --input: #1d2f26;
+  --ring: #34d399;
+
+  --glow: 52 211 153;
 }
 
 @theme inline {
@@ -89,6 +111,9 @@
   --color-destructive-foreground: var(--destructive-foreground);
   --color-success: var(--success);
   --color-success-foreground: var(--success-foreground);
+  --color-gold: var(--gold);
+  --color-gold-soft: var(--gold-soft);
+  --color-gold-foreground: var(--gold-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -107,8 +132,265 @@
     border-color: var(--border);
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* A faint two-tone glow keeps the canvas from reading as a flat sheet
+     without competing with content. Painted into the body background so no
+     extra stacking context is needed. */
   body {
-    background: var(--background);
+    background-color: var(--background);
+    background-image:
+      radial-gradient(
+        60rem 40rem at 10% -12%,
+        rgb(var(--glow) / 0.1),
+        transparent 60%
+      ),
+      radial-gradient(
+        48rem 32rem at 100% -4%,
+        rgb(var(--glow) / 0.06),
+        transparent 55%
+      );
+    background-attachment: fixed;
     color: var(--foreground);
+  }
+
+  ::selection {
+    background: rgb(var(--glow) / 0.25);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Motion
+ *
+ * Small, purposeful animations only: things that appear, change state, or
+ * confirm success. All of them collapse to a near-instant fade under
+ * `prefers-reduced-motion: reduce`, common in wallets' in-app browsers.
+ * ------------------------------------------------------------------------- */
+@keyframes gs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes gs-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes gs-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes gs-dialog-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+}
+
+@keyframes gs-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes gs-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes gs-sheen {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes gs-float {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(-14px) scale(1.04);
+  }
+}
+
+@keyframes gs-ring {
+  0% {
+    transform: scale(0.85);
+    opacity: 0.55;
+  }
+  70% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes gs-coin {
+  0% {
+    transform: translateY(6px) rotate(-8deg);
+    opacity: 0;
+  }
+  40% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-26px) rotate(10deg);
+    opacity: 0;
+  }
+}
+
+@keyframes gs-progress {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+@layer utilities {
+  .gs-fade-in {
+    animation: gs-fade-in 0.18s ease-out both;
+  }
+  .gs-fade-out {
+    animation: gs-fade-out 0.15s ease-in both;
+  }
+  .gs-dialog-in {
+    animation: gs-dialog-in 0.26s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .gs-dialog-out {
+    animation: gs-dialog-out 0.16s ease-in both;
+  }
+  .gs-rise {
+    animation: gs-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .gs-pop {
+    animation: gs-pop 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .gs-float {
+    animation: gs-float 9s ease-in-out infinite;
+  }
+  .gs-ring {
+    animation: gs-ring 1.8s ease-out infinite;
+  }
+  .gs-coin {
+    animation: gs-coin 1.6s ease-out infinite;
+  }
+  .gs-progress {
+    transform-origin: left;
+    animation: gs-progress 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  /* Shimmering gradient text for value figures. */
+  .gs-sheen-text {
+    background-image: linear-gradient(
+      100deg,
+      var(--foreground) 20%,
+      var(--primary) 40%,
+      var(--gold) 55%,
+      var(--foreground) 75%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: gs-sheen 3.2s linear infinite;
+  }
+
+  /* Brand gradient for hero text and primary accents. */
+  .gs-brand-gradient {
+    background-image: linear-gradient(
+      120deg,
+      var(--primary),
+      color-mix(in oklab, var(--primary) 50%, var(--gold))
+    );
+  }
+
+  .gs-glow {
+    box-shadow:
+      0 0 0 1px rgb(var(--glow) / 0.25),
+      0 18px 50px -20px rgb(var(--glow) / 0.55);
+  }
+
+  .gs-surface {
+    background-image: linear-gradient(
+      160deg,
+      color-mix(in oklab, var(--card) 92%, var(--primary) 8%),
+      var(--card) 55%
+    );
+  }
+
+  .gs-hairline {
+    background-image: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in oklab, var(--primary) 55%, transparent),
+      transparent
+    );
+  }
+
+  .gs-hover-lift {
+    transition:
+      transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 0.25s ease,
+      box-shadow 0.25s ease;
+  }
+  .gs-hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 20px 45px -28px rgb(var(--glow) / 0.7);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
 }
