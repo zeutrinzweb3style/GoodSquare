@@ -47,6 +47,9 @@ export function useSendToken() {
         return sendTransactionAsync({
           to: params.to as `0x${string}`,
           value,
+          // Some mobile wallets require an explicit empty calldata field even
+          // for a native CELO value transfer.
+          data: "0x",
         });
       }
 
