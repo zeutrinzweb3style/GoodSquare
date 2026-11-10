@@ -36,15 +36,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfileState(null);
       return;
     }
-    const res = await fetch(`/api/v1/profiles/${checksum}`, {
+    const res = await fetch("/api/auth/session", {
       cache: "no-store",
+      credentials: "include",
     });
-    if (res.ok) {
-      const json = await res.json();
-      setProfileState(json.data ?? null);
-    } else {
+    if (!res.ok) {
       setProfileState(null);
+      return;
     }
+
+    const json = await res.json();
+    const session = json?.data;
+    if (
+      session?.authenticated === true &&
+      typeof session.address === "string" &&
+      session.address.toLowerCase() === checksum.toLowerCase()
+    ) {
+      setProfileState(session.profile ?? null);
+      return;
+    }
+
+    // A public profile is not proof of ownership. Mutating API routes require
+    // the signed gs_session cookie returned by /api/auth/verify.
+    setProfileState(null);
   }, [checksum]);
 
   useEffect(() => {
