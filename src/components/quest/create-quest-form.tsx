@@ -147,6 +147,10 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
                 value={expReward}
                 onChange={(e) => setExpReward(e.target.value)}
               />
+              <p className="text-xs text-muted-foreground">
+                Awarded automatically when a submission is approved. EXP is a
+                reputation metric, not a currency.
+              </p>
             </div>
           </div>
           <div className="space-y-2">
@@ -167,7 +171,7 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
               value={rewardInfo}
               onChange={(e) => setRewardInfo(e.target.value)}
               maxLength={500}
-              placeholder="Optional. Rewards are issued by the community, not automatically."
+              placeholder="Optional description only. Token payouts are issued by the community from its treasury."
             />
           </div>
           <div className="space-y-2">

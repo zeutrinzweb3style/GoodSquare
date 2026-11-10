@@ -6,39 +6,45 @@ import { Badge } from "@/components/ui/badge";
 const MODULES = [
   {
     name: "Square ID",
-    status: "Phase 1 · Available",
+    phase: "Phase 1",
+    status: "Available",
     description:
       "Wallet-based identity. Connect a Celo wallet, verify with a signed message, and build a public profile.",
   },
   {
     name: "Communities",
-    status: "Phase 1 · Available",
+    phase: "Phase 1",
+    status: "Available",
     description:
       "Create communities, invite members, and manage roles with backend-enforced permissions.",
   },
   {
     name: "Square Quest",
-    status: "Phase 2 · Planned",
+    phase: "Phase 2",
+    status: "Available",
     description:
-      "Create tasks, accept proof of contribution, and let moderators approve or reject submissions.",
+      "Create tasks, accept proof of contribution, and let moderators approve or reject submissions. Approvals award EXP.",
   },
   {
     name: "Square Reputation",
-    status: "Phase 2 · Planned",
+    phase: "Phase 2",
+    status: "Available",
     description:
       "Track EXP, badges, and leaderboards. Reputation is a metric, never a currency.",
   },
   {
     name: "Square Governance",
-    status: "Phase 3 · Planned",
+    phase: "Phase 3",
+    status: "Available",
     description:
       "Transparent proposals, voting periods, quorum, and approval thresholds.",
   },
   {
     name: "Square Treasury & Pay",
-    status: "Phase 4 · Planned",
+    phase: "Phase 4",
+    status: "Available",
     description:
-      "Non-custodial treasury visibility and stablecoin payments on Celo. Requires security review.",
+      "Non-custodial treasury, contributor rewards, and stablecoin payments on Celo. Requires a security review before mainnet.",
   },
 ];
 
@@ -127,14 +133,11 @@ export default function Home() {
               <CardHeader>
                 <div className="flex items-center justify-between gap-2">
                   <CardTitle>{module.name}</CardTitle>
-                  <Badge
-                    variant={
-                      module.status.includes("Available") ? "default" : "muted"
-                    }
-                  >
-                    {module.status}
-                  </Badge>
+                  <Badge variant="default">{module.status}</Badge>
                 </div>
+                <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                  {module.phase}
+                </p>
               </CardHeader>
               <CardContent className="text-sm text-muted-foreground">
                 {module.description}
