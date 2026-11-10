@@ -303,14 +303,14 @@ function Hero({
       <div className="gs-float absolute -right-8 -top-12 h-40 w-40 rounded-full bg-primary/25 blur-3xl" />
       <div className="absolute -left-10 top-6 h-28 w-28 rounded-full bg-gold/20 blur-3xl" />
       {celebrating ? (
-        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center gap-4">
+        <div className="pointer-events-none absolute inset-x-0 top-6 flex justify-center gap-5">
           {[0, 0.25, 0.5].map((delay) => (
             <span
               key={delay}
-              className="gs-coin text-lg"
+              className="gs-coin text-primary/70"
               style={{ animationDelay: `${delay}s` }}
             >
-              🪙
+              <Sparkles className="h-4 w-4" />
             </span>
           ))}
         </div>

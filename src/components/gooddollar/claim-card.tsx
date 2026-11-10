@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useAccount, useChainId, useSwitchChain } from "wagmi";
 import { celo } from "wagmi/chains";
 import { useClaimSDK } from "@goodsdks/react-hooks";
+import { Gift } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -205,8 +206,8 @@ function ClaimPanel({
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
           <CardTitle className="flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gold-soft text-sm">
-              🪙
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gold-soft text-gold-foreground">
+              <Gift className="h-4 w-4" />
             </span>
             Daily G$ claim
           </CardTitle>
