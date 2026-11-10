@@ -259,6 +259,7 @@ function ClaimPanel({
         onSwitchChain={onSwitchChain}
         runClaim={runClaim}
         onClaimed={() => void refresh()}
+        onVerified={() => void refresh()}
       />
     </Card>
   );

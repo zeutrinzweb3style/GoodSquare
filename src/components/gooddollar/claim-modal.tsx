@@ -33,6 +33,7 @@ import {
   resolveClaimView,
 } from "@/lib/gooddollar/claim-flow";
 import type { ClaimViewKind } from "@/lib/gooddollar/claim-flow";
+import { runInAppVerification, openVerificationPopup } from "@/lib/gooddollar/verify-session";
 
 /**
  * Hooks the modal hands to the SDK claim runner. The runner must call
@@ -67,6 +68,8 @@ export interface ClaimModalProps {
   runClaim: (handlers: ClaimRunHandlers) => Promise<string>;
   /** Called once a claim is confirmed so the parent can refresh its status. */
   onClaimed: () => void;
+  /** Called after the in-app verification popup returns, so the parent refreshes. */
+  onVerified: () => void;
 }
 
 export function ClaimModal({
@@ -81,10 +84,14 @@ export function ClaimModal({
   onSwitchChain,
   runClaim,
   onClaimed,
+  onVerified,
 }: ClaimModalProps) {
   const [phase, dispatch] = useReducer(claimFlowReducer, initialClaimFlow);
   const confirmResolver = useRef<((accepted: boolean) => void) | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  const { sdk: identitySdk } = useIdentitySDK(GOODDOLLAR_ENV);
+  const [verifyBusy, setVerifyBusy] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
 
   const view = resolveClaimView({ status, chainSupported, phase });
   const step = claimStepInfo(view);
@@ -111,12 +118,49 @@ export function ClaimModal({
    * Closing must respect an in-flight claim. While a transaction is being
    * prepared or confirmed we ignore close requests, and while we are waiting on
    * the user's faucet decision we treat the close as a decline so the pending
-   * promise never dangles.
+   * promise never dangles. The verification popup runs outside the modal, so it
+   * may be closed.
    */
   function handleClose() {
     if (view === "preparing" || view === "submitting") return;
     if (view === "confirming") respondConfirm(false);
     onClose();
+  }
+
+  /**
+   * Runs GoodID face verification in an in-app popup so the page never
+   * navigates away. When the popup returns we re-read the wallet identity; a
+   * successful verification flips the status to `can_claim`.
+   */
+  async function startVerification() {
+    if (!identitySdk) return;
+    // Open the popup synchronously, inside the click handler, so the browser
+    // treats it as user-initiated and does not block it.
+    const popup = openVerificationPopup();
+    setVerifyError(null);
+    setVerifyBusy(true);
+    dispatch({ type: "verify-started" });
+    try {
+      const outcome = await runInAppVerification({
+        popup,
+        generateLink: (popupMode, callbackUrl, chainId) =>
+          identitySdk.generateFVLink(popupMode, callbackUrl, chainId),
+        chainId: GOODDOLLAR_CELO_CHAIN_ID,
+      });
+      if (outcome === "blocked") {
+        setVerifyError(
+          "Your browser blocked the verification window. Allow pop-ups for this site and try again.",
+        );
+      }
+    } catch (err) {
+      setVerifyError(
+        err instanceof Error ? err.message : "Could not start verification",
+      );
+    } finally {
+      setVerifyBusy(false);
+      dispatch({ type: "verify-finished" });
+      onVerified();
+    }
   }
 
   async function startClaim() {
@@ -197,6 +241,7 @@ export function ClaimModal({
               "bg-muted text-foreground",
             (view === "intro" || view === "preparing" || view === "submitting") &&
               "bg-accent text-accent-foreground",
+            view === "verifying" && "bg-muted text-foreground",
             view === "already_claimed" && "bg-muted text-muted-foreground",
           )}
         >
@@ -228,6 +273,7 @@ export function ClaimModal({
           address={address}
           phase={phase}
           remaining={remaining}
+          verifyError={verifyError}
         />
       </div>
 
@@ -242,6 +288,8 @@ export function ClaimModal({
           onSwitchChain={onSwitchChain}
           onConfirm={() => respondConfirm(true)}
           onDecline={() => respondConfirm(false)}
+          onVerify={() => void startVerification()}
+          verifyBusy={verifyBusy}
         />
       </div>
     </Dialog>
@@ -261,6 +309,8 @@ function HeaderIcon({ view }: { view: ClaimViewKind }) {
       return <AlertTriangle className="h-5 w-5" />;
     case "already_claimed":
       return <Clock className="h-5 w-5" />;
+    case "verifying":
+      return <ShieldCheck className="h-5 w-5" />;
     case "preparing":
     case "submitting":
       return <Loader2 className="h-5 w-5 animate-spin" />;
@@ -273,6 +323,8 @@ function titleFor(view: ClaimViewKind): string {
   switch (view) {
     case "intro":
       return "Claim your daily G$";
+    case "verifying":
+      return "Verifying your identity";
     case "confirming":
       return "One more signature";
     case "preparing":
@@ -298,6 +350,8 @@ function subtitleFor(view: ClaimViewKind): string {
   switch (view) {
     case "intro":
       return "GoodDollar UBI · Celo mainnet";
+    case "verifying":
+      return "Complete the check in the window that opened.";
     case "confirming":
       return "Confirm in your wallet to continue.";
     case "preparing":
@@ -326,6 +380,7 @@ function Body({
   address,
   phase,
   remaining,
+  verifyError,
 }: {
   view: ClaimViewKind;
   amount: string;
@@ -333,6 +388,7 @@ function Body({
   address: string;
   phase: ReturnType<typeof claimFlowReducer>;
   remaining: number;
+  verifyError: string | null;
 }) {
   switch (view) {
     case "intro":
@@ -442,6 +498,17 @@ function Body({
         </>
       );
 
+    case "verifying":
+      return (
+        <>
+          <Note tone="warn">
+            Finish the face check in the GoodID window. This page stays open and
+            updates the moment you are done.
+          </Note>
+          {verifyError ? <Note tone="bad">{verifyError}</Note> : null}
+        </>
+      );
+
     case "not_verified":
       return (
         <>
@@ -450,6 +517,7 @@ function Body({
             GoodDollar — Good Square never sees it.
           </Note>
           <KeyValue rows={[["Status", "Not verified"]]} />
+          {verifyError ? <Note tone="bad">{verifyError}</Note> : null}
         </>
       );
 
@@ -475,6 +543,8 @@ function Footer({
   onSwitchChain,
   onConfirm,
   onDecline,
+  onVerify,
+  verifyBusy,
 }: {
   view: ClaimViewKind;
   amount: string;
@@ -485,6 +555,8 @@ function Footer({
   onSwitchChain: () => void;
   onConfirm: () => void;
   onDecline: () => void;
+  onVerify: () => void;
+  verifyBusy: boolean;
 }) {
   switch (view) {
     case "intro":
@@ -562,13 +634,22 @@ function Footer({
         </>
       );
 
+    case "verifying":
+      return (
+        <Button className="flex-1" disabled>
+          <Loader2 className="h-4 w-4 animate-spin" /> Waiting for verification…
+        </Button>
+      );
+
     case "not_verified":
       return (
         <>
           <Button variant="outline" className="flex-1" onClick={onClose}>
             Not now
           </Button>
-          <VerifyButton />
+          <Button className="flex-1" onClick={onVerify} disabled={verifyBusy}>
+            {verifyBusy ? "Opening…" : "Verify with GoodID"}
+          </Button>
         </>
       );
 
@@ -584,33 +665,6 @@ function Footer({
         </>
       );
   }
-}
-
-function VerifyButton() {
-  const { sdk } = useIdentitySDK(GOODDOLLAR_ENV);
-  const [busy, setBusy] = useState(false);
-
-  async function verify() {
-    if (!sdk) return;
-    setBusy(true);
-    try {
-      const link = await sdk.generateFVLink(
-        false,
-        window.location.href,
-        GOODDOLLAR_CELO_CHAIN_ID,
-      );
-      window.location.href = link;
-    } catch {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <Button className="flex-1" onClick={verify} disabled={!sdk || busy}>
-      {busy ? "Opening…" : "Verify with GoodID"}
-      <ExternalLink className="h-4 w-4" />
-    </Button>
-  );
 }
 
 function KeyValue({ rows }: { rows: [string, ReactNode][] }) {
