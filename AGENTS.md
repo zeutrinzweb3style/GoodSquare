@@ -16,7 +16,8 @@ Phase 2 (Participation), Phase 3 (Governance), Phase 4 (Financial
 infrastructure), and Phase 5 (Developer ecosystem) are implemented here: Square
 ID, communities, membership, roles, Square Quest, Square Reputation, Square
 Governance, Square Treasury, Square Pay, community rewards, notifications, API
-keys, webhooks, and a versioned REST API.
+keys, webhooks, a versioned REST API, and optional GoodDollar identity + UBI on
+Square ID.
 
 ## Golden rules
 - **No native token, no speculative tokenomics.** EXP is a reputation metric
@@ -201,6 +202,27 @@ and Phase 5 added the developer surface (API keys, rate limiting, webhooks, SDK)
   when no recipient is pending. Pure rules live in `src/lib/rewards/rules.ts`.
 - **Notifications are a courtesy.** `notify` never fails the action it
   describes, and notifications never gate an action.
+
+## GoodDollar integration rules (do not break these)
+- **Mainnet only.** GoodDollar has no testnet deployment. This integration is
+  gated to Celo mainnet (`42220`) by `isGoodDollarSupportedChain` in
+  `src/lib/gooddollar/config.ts`. It must stay hidden on every other chain,
+  including Celo Sepolia, and show a "Switch to Celo" prompt instead of failing
+  silently.
+- **Still non-custodial.** The UBI claim is a real mainnet transaction signed by
+  the user's own wallet. The backend never holds a key and never sends anything.
+  `src/lib/gooddollar/identity.ts` is read-only (public client only) and safe to
+  call from an unauthenticated route.
+- **Use the official SDK.** Identity and claim flows come from
+  `@goodsdks/citizen-sdk` / `@goodsdks/react-hooks` — never hand-roll contract
+  calls or invent addresses. Verified Celo mainnet addresses live in
+  `GOODDOLLAR_CELO_CONTRACTS`; re-check them against the GoodProtocol deployment
+  manifest before any production financial use.
+- **Pure helpers stay I/O-free.** `src/lib/gooddollar/config.ts` holds chain
+  guards, address maps, and `formatUnits`; keep it free of runtime imports so
+  `tests/gooddollar.test.ts` can exercise it directly.
+- **The status endpoint is read-only and public.** `GET
+  /api/v1/gooddollar/identity` returns identity state only; it never writes.
 
 ## Developer ecosystem rules (do not break these)
 - **Never store or log a plaintext API key.** Only the SHA-256 hash and a short
