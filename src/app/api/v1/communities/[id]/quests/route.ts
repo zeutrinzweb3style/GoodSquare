@@ -99,6 +99,7 @@ export async function POST(
       expReward,
       deadline,
       status,
+      verifiedOnly,
     } = parsed.data;
 
     const supabase = createServiceRoleClient();
@@ -114,6 +115,7 @@ export async function POST(
         exp_reward: expReward,
         deadline: deadline ? new Date(deadline).toISOString() : null,
         status,
+        verified_only: verifiedOnly,
         created_by: normalizeAddress(session.sub),
       })
       .select("*")

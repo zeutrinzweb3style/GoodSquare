@@ -11,6 +11,7 @@ export interface CommunityRow {
   logo_url: string | null;
   banner_url: string | null;
   visibility: "public" | "private";
+  verified_only: boolean;
   creator_address: string;
   member_count: number;
   created_at: string;
@@ -99,6 +100,7 @@ export function serializeCommunity(
     logo_url: row.logo_url,
     banner_url: row.banner_url,
     visibility: row.visibility,
+    verified_only: row.verified_only,
     creator_address: row.creator_address,
     member_count: row.member_count,
     created_at: row.created_at,

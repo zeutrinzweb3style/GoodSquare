@@ -63,6 +63,9 @@ async function CommunityDetail({
               {community.name}
             </h1>
             <Badge variant="muted">{community.visibility}</Badge>
+            {community.verified_only ? (
+              <Badge variant="outline">GoodDollar verified</Badge>
+            ) : null}
           </div>
           <p className="font-mono text-sm text-muted-foreground">
             /{community.slug}
@@ -105,6 +108,11 @@ async function CommunityDetail({
         </Button>
         <Button asChild variant="outline" size="sm">
           <Link href={`/communities/${community.slug}/pay`}>Pay</Link>
+        </Button>
+        <Button asChild variant="outline" size="sm">
+          <Link href={`/communities/${community.slug}/activity`}>
+            G$ activity
+          </Link>
         </Button>
         {role === "owner" || role === "admin" || role === "moderator" ? (
           <Button asChild variant="outline" size="sm">

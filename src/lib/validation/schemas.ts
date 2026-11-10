@@ -52,6 +52,7 @@ export const createCommunitySchema = z.object({
   slug,
   description: z.string().trim().max(500).optional().or(z.literal("")),
   visibility: z.enum(["public", "private"]).default("public"),
+  verifiedOnly: z.boolean().default(false),
 });
 
 export const listCommunitiesQuerySchema = z.object({
@@ -82,6 +83,7 @@ export const createQuestSchema = z.object({
     .optional()
     .or(z.literal("")),
   status: z.enum(["draft", "active", "closed"]).default("active"),
+  verifiedOnly: z.boolean().default(false),
 });
 
 export const updateQuestSchema = createQuestSchema.partial();
@@ -180,7 +182,7 @@ export const updateProposalStatusSchema = z.object({
   status: z.enum(["draft", "active", "closed", "cancelled"]),
 });
 
-const tokenSymbol = z.enum(["CELO", "cUSD", "USDC", "USDT"]);
+const tokenSymbol = z.enum(["CELO", "cUSD", "USDC", "USDT", "G$"]);
 
 /** Human decimal amount. Stored/validated as a string, never a float. */
 const amountString = z

@@ -18,6 +18,7 @@ export interface Community {
   logo_url: string | null;
   banner_url: string | null;
   visibility: "public" | "private";
+  verified_only: boolean;
   creator_address: string;
   member_count: number;
   created_at: string;
@@ -60,6 +61,7 @@ export interface Quest {
   status: QuestStatus;
   deadline: string | null;
   exp_reward: number;
+  verified_only: boolean;
   created_by: string;
   submission_count: number;
   created_at: string;

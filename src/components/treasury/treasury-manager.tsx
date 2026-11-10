@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { PayButton } from "@/components/pay/pay-button";
 import { formatAmount } from "@/lib/treasury/amounts";
-import { getToken } from "@/lib/treasury/tokens";
+import { getToken, payableTokens } from "@/lib/treasury/tokens";
 import { submitWithRetry } from "@/lib/treasury/submit";
 import { shortenAddress } from "@/lib/utils";
 import type {
@@ -315,9 +315,7 @@ function CreateSpendingForm({
 
   if (!treasury) return null;
 
-  const tokens = ["CELO", "cUSD", "USDC", "USDT"].filter(
-    (symbol) => getToken(treasury.chain_id, symbol),
-  );
+  const tokens = payableTokens(treasury.chain_id);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -391,9 +389,9 @@ function CreateSpendingForm({
                 onChange={(e) => setTokenSymbol(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               >
-                {tokens.map((symbol) => (
-                  <option key={symbol} value={symbol}>
-                    {symbol}
+                {tokens.map((token) => (
+                  <option key={token.symbol} value={token.symbol}>
+                    {token.symbol}
                   </option>
                 ))}
               </select>
@@ -623,9 +621,7 @@ function RecordTransactionForm({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const tokens = ["CELO", "cUSD", "USDC", "USDT"].filter(
-    (symbol) => getToken(treasury.chain_id, symbol),
-  );
+  const tokens = payableTokens(treasury.chain_id);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -664,9 +660,9 @@ function RecordTransactionForm({
                 onChange={(e) => setTokenSymbol(e.target.value)}
                 className="h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
               >
-                {tokens.map((symbol) => (
-                  <option key={symbol} value={symbol}>
-                    {symbol}
+                {tokens.map((token) => (
+                  <option key={token.symbol} value={token.symbol}>
+                    {token.symbol}
                   </option>
                 ))}
               </select>

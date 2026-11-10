@@ -21,6 +21,7 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
   const [rewardInfo, setRewardInfo] = useState("");
   const [expReward, setExpReward] = useState("0");
   const [deadline, setDeadline] = useState("");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
@@ -69,6 +70,7 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
           expReward: Number(expReward) || 0,
           deadline: deadline ? new Date(deadline).toISOString() : "",
           status: "active",
+          verifiedOnly,
         }),
       });
       const json = await res.json().catch(() => null);
@@ -81,6 +83,7 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
       setRewardInfo("");
       setExpReward("0");
       setDeadline("");
+      setVerifiedOnly(false);
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -176,6 +179,23 @@ export function CreateQuestForm({ communityId }: { communityId: string }) {
               onChange={(e) => setDeadline(e.target.value)}
             />
           </div>
+          <label className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => setVerifiedOnly(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">
+                GoodDollar-verified members only
+              </span>
+              <span className="mt-1 block text-muted-foreground">
+                Only wallets verified as GoodDollar citizens may submit this
+                quest.
+              </span>
+            </span>
+          </label>
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
           <div className="flex gap-2">
             <Button type="submit" disabled={submitting}>

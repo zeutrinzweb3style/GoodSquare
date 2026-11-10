@@ -39,6 +39,12 @@ export const GOODDOLLAR_URLS = {
 export const G_DOLLAR_DECIMALS = 18;
 
 /**
+ * G$'s symbol in the Square Treasury / Square Pay token registry
+ * (`@/lib/treasury/tokens`). Kept here so GoodDollar code never hardcodes it.
+ */
+export const G_DOLLAR_TOKEN_ID = "G$";
+
+/**
  * Whether the GoodDollar integration can run against the given chain id.
  * Only Celo mainnet is supported; every other network (including Celo
  * Sepolia) returns false so callers can hide or disable the feature.
