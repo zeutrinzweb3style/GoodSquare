@@ -5,6 +5,7 @@ import { getToken } from "@/lib/treasury/tokens";
 import { getErc20Balance, getNativeBalance } from "@/lib/treasury/chain";
 import { verifyTransfer } from "@/lib/treasury/verify";
 import { notify } from "@/lib/notifications/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import {
   canDistribute,
   canPayRecipient,
@@ -308,6 +309,21 @@ export async function payRewardRecipient(input: {
     entityType: "reward_distribution",
     entityId: distribution.id,
     communityId: distribution.community_id,
+  });
+
+  await emitWebhookEvent({
+    event: "reward.paid",
+    communityId: distribution.community_id,
+    address: recipient.address,
+    data: {
+      communityId: distribution.community_id,
+      distributionId: distribution.id,
+      recipientId: recipient.id,
+      address: normalizeAddress(recipient.address),
+      tokenSymbol: distribution.token_symbol,
+      amount: recipient.amount,
+      txHash,
+    },
   });
 
   const recipients = await listRewardRecipients(distribution.id);

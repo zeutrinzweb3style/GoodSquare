@@ -13,6 +13,7 @@ import {
   validationError,
 } from "@/lib/api/response";
 import { serializeCommunity, writeAuditLog } from "@/lib/community/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 
 /** List public communities. */
 export async function GET(request: NextRequest) {
@@ -114,6 +115,17 @@ export async function POST(request: NextRequest) {
     entityId: community.id,
     communityId: community.id,
     metadata: { slug, visibility },
+  });
+
+  await emitWebhookEvent({
+    event: "community.created",
+    communityId: community.id,
+    data: {
+      communityId: community.id,
+      slug: community.slug,
+      name: community.name,
+      visibility: community.visibility,
+    },
   });
 
   return created(serializeCommunity(community, "owner"));

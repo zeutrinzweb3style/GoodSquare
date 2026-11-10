@@ -1,5 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { parseAuthorizationHeader } from "@/lib/developer/api-keys";
+import { authenticateApiKey } from "@/lib/developer/api-key-service";
 
 export const SESSION_COOKIE = "gs_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -7,6 +9,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 export interface SessionPayload {
   /** Wallet address, lowercased. Acts as the user id. */
   sub: string;
+  /** How the caller authenticated: the browser cookie, or a bearer API key. */
+  via?: "cookie" | "api_key";
 }
 
 function getSecretKey(): Uint8Array {
@@ -43,10 +47,21 @@ export async function verifySessionToken(
 }
 
 export async function getSession(): Promise<SessionPayload | null> {
+  // Third-party integrations authenticate with a bearer API key. Prefer it
+  // when present so an explicit key wins over a stale browser cookie.
+  const authorization = (await headers()).get("authorization");
+  const bearer = parseAuthorizationHeader(authorization);
+  if (bearer) {
+    const resolved = await authenticateApiKey(bearer);
+    if (resolved) return { sub: resolved.owner, via: "api_key" };
+    return null;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
-  return verifySessionToken(token);
+  const payload = await verifySessionToken(token);
+  return payload ? { ...payload, via: "cookie" } : null;
 }
 
 export function sessionCookieOptions() {

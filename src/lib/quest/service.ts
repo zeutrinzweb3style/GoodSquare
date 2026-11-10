@@ -2,6 +2,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { normalizeAddress } from "@/lib/auth/wallet";
 import { writeAuditLog } from "@/lib/community/service";
 import { recordReputationEvent } from "@/lib/reputation/service";
+import { emitWebhookEvent } from "@/lib/developer/webhook-service";
 import type { Quest } from "@/lib/types";
 
 export async function getQuestById(questId: string): Promise<Quest | null> {
@@ -125,6 +126,17 @@ export async function createSubmission(entry: {
     metadata: { quest_id: entry.quest.id },
   });
 
+  await emitWebhookEvent({
+    event: "quest.submitted",
+    communityId: entry.quest.community_id,
+    data: {
+      communityId: entry.quest.community_id,
+      questId: entry.quest.id,
+      submissionId: data?.id ?? null,
+      address,
+    },
+  });
+
   return data;
 }
 
@@ -205,6 +217,20 @@ export async function reviewSubmission(entry: {
     communityId: updated.community_id,
     metadata: { quest_id: updated.quest_id, decision: entry.decision },
   });
+
+  if (entry.decision === "approved") {
+    await emitWebhookEvent({
+      event: "quest.approved",
+      communityId: updated.community_id,
+      data: {
+        communityId: updated.community_id,
+        questId: updated.quest_id,
+        submissionId: updated.id,
+        address: updated.address,
+        expReward: quest?.exp_reward ?? 0,
+      },
+    });
+  }
 
   return { submission: updated, quest: quest as Quest | null } as const;
 }

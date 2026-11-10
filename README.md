@@ -10,9 +10,11 @@ Square offers interoperable modules that work together or on their own.
 This repository contains **Phase 1 — Foundation** (Square ID, community
 creation and membership, auth, API, and data layer), **Phase 2 —
 Participation** (Square Quest and Square Reputation), **Phase 3 —
-Governance** (proposals and voting), and **Phase 4 — Financial
+Governance** (proposals and voting), **Phase 4 — Financial
 infrastructure** (Square Treasury with multisig-style approvals, Square Pay
-with QR codes, community rewards, and notifications).
+with QR codes, community rewards, and notifications), and **Phase 5 —
+Developer ecosystem** (API keys, rate limiting, webhooks, a TypeScript SDK,
+and public documentation).
 
 ## What's implemented
 
@@ -28,6 +30,8 @@ with QR codes, community rewards, and notifications).
 | **Community Rewards** | ✅ Available | Non-custodial contributor reward distributions from the treasury |
 | **Notifications** | ✅ Available | In-app updates for proposals, payments, and rewards |
 | **Versioned API** | ✅ Available | REST endpoints under `/api/v1` |
+| **Developer ecosystem** | ✅ Available | API keys, rate limiting, webhooks, TypeScript SDK, and docs |
+| **GoodDollar identity & UBI** | ✅ Available (mainnet) | GoodDollar citizen verification and daily G$ claim on Square ID |
 
 Square Treasury and Square Pay are **non-custodial**: the backend never holds a
 key and never sends a transaction. Every on-chain movement is signed by a user's
@@ -86,6 +90,59 @@ own wallet; the server only verifies the receipt and records it.
   recipient `paid`, and records the treasury transaction.
 - When every recipient is paid or skipped, the distribution completes
   automatically. Duplicate recipients and non-positive amounts are rejected.
+
+### Developer ecosystem in detail
+
+- **API keys.** Create keys in the Developer Portal (`/developers`) or with
+  `POST /api/v1/api-keys`. A key looks like `gs_live_<prefix>_<secret>`; the
+  server stores only a short prefix and a SHA-256 hash, and the full key is
+  shown once. Present it as `Authorization: Bearer <key>`. Revocation is
+  immediate.
+- **Rate limiting.** A sliding window of 120 requests/minute for reads and 30
+  for writes, per key or IP. Responses carry `X-RateLimit-Limit`,
+  `X-RateLimit-Remaining`, and `X-RateLimit-Reset`; a `429` also carries
+  `Retry-After`.
+- **Webhooks.** Subscribe HTTPS endpoints to events and receive signed POSTs.
+  Each delivery is signed with HMAC-SHA256 (`X-GoodSquare-Signature:
+  t=<unix>,v1=<hex>`), so a receiver can prove the payload came from Good
+  Square. Failed deliveries retry with backoff (30s, 2m, 10m, 1h, 6h; five
+  attempts) and the queue is drained by `POST /api/v1/webhooks/dispatch`.
+- **TypeScript SDK.** `@goodsquare/sdk` (in [`sdk/`](./sdk)) is a typed client
+  with automatic retries, webhook verification, and Celo token/ABI helpers. It
+  has zero runtime dependencies and works on Node, Deno, Bun, and edge
+  runtimes.
+- **Documentation and examples.** [`docs/api.md`](./docs/api.md) is the full API
+  reference; runnable examples live in [`sdk/examples`](./sdk/examples).
+
+### GoodDollar identity & UBI in detail
+
+Square ID can verify a wallet as a **GoodDollar citizen** and let it claim its
+daily **G$** Universal Basic Income. This is an optional add-on that lives on the
+Square ID page (`/profile`).
+
+- **Mainnet only.** GoodDollar has no testnet deployment. Its contracts live on
+  Celo mainnet (42220), Fuse (122), and XDC (50); this integration supports Celo
+  mainnet only and stays hidden on every other chain, including Celo Sepolia.
+  The UI shows a "Switch to Celo" prompt instead of silently failing.
+- **Still non-custodial.** The claim is a real mainnet transaction signed by the
+  user's own wallet. The backend never holds a key and never sends anything; it
+  only reads the public identity registry.
+- **Citizen verification.** Unverified wallets hand off to GoodDollar's own face
+  verification flow (`generateFVLink`). Verification stays on GoodDollar.
+- **Wallet linking.** A verified citizen can link secondary wallets
+  (`connectAccount`) so they share one identity and one UBI claim.
+- **Two-signature claim flow.** Claiming can require up to two mainnet
+  transactions: a faucet top-up for gas, then the claim itself. A modal walks the
+  user through both, showing "Step 1 of 2" then "Step 2 of 2" and never hiding
+  the second signature. The step logic lives in `src/lib/gooddollar/claim-flow.ts`
+  (pure, tested in `tests/claim-flow.test.ts`); the modal is
+  `src/components/gooddollar/claim-modal.tsx`.
+- **Read-only status endpoint.** `GET /api/v1/gooddollar/identity?address=…`
+  returns whether an address is a verified citizen and its root identity.
+
+Powered by the official `@goodsdks/citizen-sdk` and `@goodsdks/react-hooks`
+packages. Verified Celo mainnet contract addresses and the environment live in
+`src/lib/gooddollar/config.ts`.
 
 ## Design principles
 
@@ -148,6 +205,7 @@ supabase/migrations/0002_phase2_participation.sql
 supabase/migrations/0003_phase3_governance.sql
 supabase/migrations/0004_phase4_financial.sql
 supabase/migrations/0005_phase4_financial_completion.sql
+supabase/migrations/0006_phase5_developer.sql
 ```
 
 They create `profiles`, `communities`, `community_members`, `auth_nonces`,
@@ -155,8 +213,9 @@ They create `profiles`, `communities`, `community_members`, `auth_nonces`,
 `reputation_events`, `badges`, `user_badges`, `proposals`, `votes`,
 `treasuries`, `treasury_signers`, `treasury_spending_proposals`,
 `treasury_spending_approvals`, `treasury_transactions`, `payment_requests`,
-`payments`, `reward_distributions`, `reward_recipients`, and `notifications`,
-and enable Row Level Security on all of them.
+`payments`, `reward_distributions`, `reward_recipients`, `notifications`,
+`api_keys`, and `webhook_endpoints` / `webhook_deliveries`, and enable Row
+Level Security on all of them.
 
 ### 4. Run the app
 
@@ -227,8 +286,17 @@ Open [http://localhost:3000](http://localhost:3000).
 | `GET`/`POST` | `/api/v1/payment-requests` | List your requests / create one |
 | `GET`/`PATCH` | `/api/v1/payment-requests/[id]` | Request detail / cancel it |
 | `GET`/`POST` | `/api/v1/payments` | List payments / record a verified wallet-to-wallet payment |
+| `GET`/`POST` | `/api/v1/api-keys` | List / create API keys |
+| `DELETE` | `/api/v1/api-keys/[id]` | Revoke an API key |
+| `GET`/`POST` | `/api/v1/webhooks` | List / create webhook endpoints |
+| `PATCH`/`DELETE` | `/api/v1/webhooks/[id]` | Update / delete a webhook endpoint |
+| `GET` | `/api/v1/webhooks/[id]/deliveries` | Recent deliveries for an endpoint |
+| `POST` | `/api/v1/webhooks/dispatch` | Drain the retry queue (cron secret) |
 
 `[id]` accepts a community UUID or slug.
+
+Full request and response details, error codes, and the webhook event
+catalogue are in [`docs/api.md`](./docs/api.md).
 
 ## Security model
 
@@ -253,6 +321,17 @@ Open [http://localhost:3000](http://localhost:3000).
 - Payable tokens come from a **static allowlist** in `src/lib/treasury/tokens.ts`;
   a token address is never accepted from client input, which closes a class of
   spoofing attacks. Amounts are stored as text base-unit integers, never floats.
+- **API keys are hashed.** Only a SHA-256 hash and a short prefix are stored; the
+  plaintext key is returned once at creation. Lookups compare hashes in constant
+  time. Revocation is immediate.
+- **Webhook URLs are HTTPS only.** `isAllowedWebhookUrl` refuses localhost,
+  `.internal`/`.local` hosts, and private IPv4 literals to blunt SSRF, and
+  deliveries time out after 10 seconds.
+- **The webhook retry queue is secret-gated.** `POST /api/v1/webhooks/dispatch`
+  is disabled unless `CRON_SECRET` is configured, and then requires it.
+- **Rate limiting is best-effort.** The in-process store is per-instance, so a
+  multi-instance deployment scales the effective limit with the fleet; a shared
+  store can replace it without changing call sites.
 
 ## Project structure
 
@@ -260,7 +339,7 @@ Open [http://localhost:3000](http://localhost:3000).
 src/
   app/
     api/auth/            # nonce, verify, logout, session
-    api/v1/              # communities, quests, submissions, reputation, badges, proposals, treasury, payments
+    api/v1/              # communities, quests, submissions, reputation, badges, proposals, treasury, payments, api-keys, webhooks
     communities/         # explore, detail, new
       [slug]/quests/     # quest list and detail
       [slug]/leaderboard/
@@ -269,17 +348,20 @@ src/
       [slug]/treasury/   # treasury balances, spending, activity
       [slug]/pay/        # community payment requests
     pay/[requestId]/     # public payment-request pay page
+    developers/          # developer portal (API keys, webhooks)
     profile/             # Square ID editor
     u/[address]/         # public profiles
   components/
     community/           # cards, create form, join/leave
+    developer/           # API key and webhook managers
+    gooddollar/          # GoodDollar identity panel, claim card, claim modal
     quest/               # quest card, create form, submit panel, moderation queue
     reputation/          # leaderboard and EXP badges
     governance/          # proposal card, create form, vote panel
     treasury/            # balances, treasury manager
     pay/                 # pay button, payment-request form, pay view
     profile/             # Square ID form
-    ui/                  # accessible primitives (button, card, input, …)
+    ui/                  # accessible primitives (button, card, input, dialog, …)
     wallet/              # connect wallet button
   lib/
     api/                 # response helpers
@@ -290,10 +372,14 @@ src/
     governance/          # proposal service + voting rules
     treasury/            # token registry, amounts, verification, spending, service
     pay/                 # payment status rules + service
+    developer/           # API keys, rate limiting, webhooks, delivery queue
+    gooddollar/          # GoodDollar config, read-only identity lookup, claim flow
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
 supabase/migrations/     # SQL schema
+docs/                    # API reference, architecture, deployment
+sdk/                     # @goodsquare/sdk (standalone TypeScript SDK + examples)
 ```
 
 ## Scripts
@@ -311,9 +397,14 @@ npm test        # unit tests (node:test)
 - **Phase 1 — Foundation:** Square ID, communities, membership, API.
 - **Phase 2 — Participation:** Square Quest and Square Reputation.
 - **Phase 3 — Governance:** proposals, voting, quorum.
-- **Phase 4 — Financial infrastructure (this release):** Square Treasury and
-  Square Pay. Non-custodial by design; a formal security review is still
-  recommended before handling production funds at scale.
+- **Phase 4 — Financial infrastructure:** Square Treasury and Square Pay.
+  Non-custodial by design; a formal security review is still recommended before
+  handling production funds at scale.
+- **Phase 5 — Developer ecosystem (this release):** API keys, rate limiting,
+  webhooks, a TypeScript SDK, public documentation, and runnable examples.
+- **GoodDollar integration (this release):** optional citizen verification and
+  daily G$ UBI claim on Square ID, Celo mainnet only. The claim runs in a modal
+  that walks the two-signature (faucet then claim) flow.
 
 ## License
 

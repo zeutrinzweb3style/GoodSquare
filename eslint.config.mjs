@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // The SDK is a standalone package with its own tsconfig.
+    "sdk/**",
   ]),
 ]);
 
