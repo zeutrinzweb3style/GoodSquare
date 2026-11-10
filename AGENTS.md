@@ -270,3 +270,15 @@ and Phase 5 added the developer surface (API keys, rate limiting, webhooks, SDK)
   ESLint, and must not import from `src/`. Keep it dependency-free.
 - **Docs live in `docs/api.md`.** Update it when routes, events, or error codes
   change.
+- **G$ is a first-class token.** It lives in the registry (`src/lib/treasury/tokens.ts`,
+  symbol `G$`, 18 decimals, Celo mainnet `0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A`)
+  and has no Celo Sepolia deployment, so it only appears on mainnet selectors.
+  The UI derives its token lists from `payableTokens(chainId)`; never hardcode a
+  token array in a component.
+- **GoodDollar identity code stays pure where it can be tested.** `eligibility.ts`
+  and `metrics.ts` have no SDK/network/`@/` imports (the Node test runner does not
+  resolve extensionless relative imports). `gate.ts` and `activity.ts` are the
+  thin server wrappers that touch the chain and Supabase.
+- **Verified-humans-only is opt-in.** `communities.verified_only` and
+  `quests.verified_only` (migration 0007) gate join and quest submission through
+  `checkVerifiedHuman`. Defaults are false so existing rows are unaffected.
