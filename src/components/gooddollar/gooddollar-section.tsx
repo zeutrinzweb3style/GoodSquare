@@ -10,8 +10,12 @@ import { GoodDollarClaim } from "@/components/gooddollar/claim-card";
 export function GoodDollarSection() {
   return (
     <div className="space-y-6">
-      <GoodDollarIdentity />
-      <GoodDollarClaim />
+      <div className="gs-rise">
+        <GoodDollarIdentity />
+      </div>
+      <div className="gs-rise" style={{ animationDelay: "90ms" }}>
+        <GoodDollarClaim />
+      </div>
     </div>
   );
 }

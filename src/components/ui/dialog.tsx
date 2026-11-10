@@ -32,6 +32,19 @@ export function Dialog({
   dismissible?: boolean;
 }) {
   const panelRef = React.useRef<HTMLDivElement>(null);
+  // `mounted` keeps the panel in the DOM through its exit animation. The enter
+  // animation is a plain CSS animation that runs on mount; the exit class is
+  // applied while `open` is false but the panel is still mounted.
+  const [mounted, setMounted] = React.useState(open);
+
+  React.useEffect(() => {
+    if (open) {
+      const id = requestAnimationFrame(() => setMounted(true));
+      return () => cancelAnimationFrame(id);
+    }
+    const timeout = setTimeout(() => setMounted(false), 180);
+    return () => clearTimeout(timeout);
+  }, [open]);
 
   // Close on Escape and keep Tab focus inside the panel.
   React.useEffect(() => {
@@ -78,12 +91,15 @@ export function Dialog({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!mounted) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-foreground/30 backdrop-blur-sm"
+        className={cn(
+          "absolute inset-0 bg-foreground/40 backdrop-blur-sm",
+          open ? "gs-fade-in" : "gs-fade-out",
+        )}
         onClick={dismissible ? onClose : undefined}
         aria-hidden="true"
       />
@@ -94,7 +110,8 @@ export function Dialog({
         aria-labelledby={labelledBy}
         tabIndex={-1}
         className={cn(
-          "relative w-full max-w-md rounded-2xl border border-border bg-card text-card-foreground shadow-2xl outline-none",
+          "relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-card text-card-foreground shadow-2xl outline-none",
+          open ? "gs-dialog-in" : "gs-dialog-out",
           className,
         )}
       >

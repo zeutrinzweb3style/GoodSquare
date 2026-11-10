@@ -200,23 +200,31 @@ function ClaimPanel({
   const copy = describeClaimStatus(status);
 
   return (
-    <Card>
+    <Card className="gs-surface gs-glow overflow-hidden">
+      <div className="gs-hairline h-px" />
       <CardHeader>
         <div className="flex items-center justify-between gap-3">
-          <CardTitle>Daily G$ claim</CardTitle>
+          <CardTitle className="flex items-center gap-2">
+            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gold-soft text-sm">
+              🪙
+            </span>
+            Daily G$ claim
+          </CardTitle>
           <Badge variant={TONE_VARIANT[copy.tone]}>{copy.label}</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
         {status === "not_whitelisted" ? (
           <p className="text-sm text-muted-foreground">
-            Verify your GoodDollar identity above before you can claim G$.
+            Verify your GoodDollar identity above to unlock your daily G$ UBI.
           </p>
         ) : status === "can_claim" ? (
           <p className="text-sm">
             You can claim{" "}
-            <span className="font-semibold">{formatUnits(entitlement)} G$</span>{" "}
-            right now.
+            <span className="font-semibold text-gold">
+              {formatUnits(entitlement)} G$
+            </span>{" "}
+            right now — free UBI, every day.
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">
@@ -233,6 +241,7 @@ function ClaimPanel({
           <Button
             onClick={() => setModalOpen(true)}
             disabled={status === "can_claim" ? !sdk : false}
+            className="gs-brand-gradient text-primary-foreground shadow-lg shadow-primary/20 transition-transform hover:scale-[1.02] active:scale-[0.98]"
           >
             {status === "can_claim" ? `Claim ${formatUnits(entitlement)} G$` : "Open claim"}
           </Button>
@@ -242,7 +251,7 @@ function ClaimPanel({
         </div>
 
         <p className="text-xs text-muted-foreground">
-          G$ is claimed directly to your wallet on Celo ({GOODDOLLAR_CELO_CHAIN_ID}
+          G$ is claimed straight to your wallet on Celo ({GOODDOLLAR_CELO_CHAIN_ID}
           ). Good Square never holds your funds.
         </p>
       </CardContent>
