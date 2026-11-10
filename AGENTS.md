@@ -63,9 +63,12 @@ npx next typegen # regenerate route types after adding pages/routes
 
 ### Phase 2 (supabase/migrations/0002_phase2_participation.sql)
 - `quests` — per-community tasks; `exp_reward`, `category`, `status`,
-  `deadline`; `submission_count` maintained by a trigger.
+  `deadline`; `submission_count` maintained by a trigger. Migration 0008 adds
+  an optional reward promise (`reward_token_symbol`, `reward_amount`), set
+  together or not at all.
 - `quest_submissions` — unique `(quest_id, address)` prevents duplicate
-  submissions; `status` pending|approved|rejected.
+  submissions; `status` pending|approved|rejected. `reward_recipient_id`
+  (migration 0008) points at the queued payout for an approved submission.
 - `quest_approvals` — immutable review history (append-only).
 - `reputation_events` — append-only EXP ledger; `community_reputation` view
   derives per-community totals.
@@ -99,7 +102,9 @@ npx next typegen # regenerate route types after adding pages/routes
 - `treasury_spending_approvals` — one row per signer approval; unique
   `(proposal_id, approver)`. Distinct signers are counted.
 - `reward_distributions` — a plan to pay several contributors in one token;
-  `status` draft|active|completed|cancelled.
+  `status` draft|active|completed|cancelled. `quest_id` (migration 0008) links
+  a plan to the quest it settles; a partial unique index allows one open plan
+  per quest.
 - `reward_recipients` — one row per payee; unique `(distribution_id, address)`;
   `status` pending|paid|skipped. `treasury_transactions.reward_recipient_id`
   links a payout to its transaction, and `source` may be `reward`.
@@ -216,6 +221,15 @@ and Phase 5 added the developer surface (API keys, rate limiting, webhooks, SDK)
   a plan; each `reward_recipients` payout is only marked `paid` after
   `verifyTransfer` confirms the signer's receipt, and the distribution completes
   when no recipient is pending. Pure rules live in `src/lib/rewards/rules.ts`.
+- **The quest → reward link queues a plan; it never pays.** When a quest promises
+  a token (`reward_token_symbol` + `reward_amount`), approving a submission adds
+  the contributor as a recipient on the quest's distribution — created as a
+  `draft` on first approval and reused after. The approval must never fail
+  because of the payout: a missing treasury or an unpayable token skips it and
+  records the reason. Pure rules live in `src/lib/quest/reward.ts` (no runtime
+  imports, so `tests/quest-reward.test.ts` can exercise them directly); the
+  token allowlist there must stay equal to `TOKEN_SYMBOLS` in
+  `src/lib/treasury/tokens.ts`, which a test asserts.
 - **Notifications are a courtesy.** `notify` never fails the action it
   describes, and notifications never gate an action.
 
