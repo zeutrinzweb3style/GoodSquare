@@ -1,16 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useAccount, useChainId } from "wagmi";
+import { useAccount, useChainId, useSwitchChain } from "wagmi";
+import { celo } from "wagmi/chains";
 import { useClaimSDK } from "@goodsdks/react-hooks";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState, LoadingState } from "@/components/ui/states";
+import { ClaimModal } from "@/components/gooddollar/claim-modal";
+import type { ClaimRunHandlers } from "@/components/gooddollar/claim-modal";
 import {
   GOODDOLLAR_CELO_CHAIN_ID,
   GOODDOLLAR_ENV,
-  celoTxUrl,
   describeClaimStatus,
   formatUnits,
   isGoodDollarSupportedChain,
@@ -32,30 +34,52 @@ const TONE_VARIANT: Record<string, "secondary" | "outline" | "muted"> = {
 /**
  * Square ID + GoodDollar UBI claim card.
  *
- * The claim is a real mainnet transaction signed by the user's own wallet; the
- * app never holds a key. Rendered only on Celo mainnet.
+ * The card is the persistent summary; the claim itself runs inside a modal that
+ * walks the two-signature (top-up then claim) flow. Every transaction is signed
+ * by the user's own wallet; the app never holds a key. Rendered only on Celo
+ * mainnet.
  */
 export function GoodDollarClaim() {
   const { address, isConnected } = useAccount();
   const chainId = useChainId();
+  const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   if (!isConnected || !address) {
     return null;
   }
-  if (!isGoodDollarSupportedChain(chainId)) {
+
+  const chainSupported = isGoodDollarSupportedChain(chainId);
+  if (!chainSupported) {
     return null;
   }
 
-  return <ClaimPanel key={`${address}:${chainId}`} />;
+  return (
+    <ClaimPanel
+      address={address}
+      chainSupported={chainSupported}
+      switchingChain={isSwitching}
+      onSwitchChain={() => switchChain({ chainId: celo.id })}
+      key={`${address}:${chainId}`}
+    />
+  );
 }
 
-function ClaimPanel() {
+function ClaimPanel({
+  address,
+  chainSupported,
+  switchingChain,
+  onSwitchChain,
+}: {
+  address: string;
+  chainSupported: boolean;
+  switchingChain: boolean;
+  onSwitchChain: () => void;
+}) {
   const { sdk, loading: sdkLoading, error: sdkError } = useClaimSDK(GOODDOLLAR_ENV);
   const [view, setView] = useState<ClaimView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [claiming, setClaiming] = useState(false);
-  const [confirmedTx, setConfirmedTx] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     if (!sdk) return;
@@ -101,23 +125,18 @@ function ClaimPanel() {
     }
   }
 
-  async function claim() {
-    if (!sdk) return;
-    setError(null);
-    setClaiming(true);
-    try {
-      const receipt = await sdk.claim(async (message) => {
-        // The SDK asks for confirmation before it may need a second (faucet)
-        // transaction to cover gas. The user must approve it in their wallet.
-        window.confirm(message);
-      });
-      setConfirmedTx(receipt.transactionHash);
-      await refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Claim failed");
-    } finally {
-      setClaiming(false);
-    }
+  /**
+   * Runs the SDK claim and relays its two callbacks to the modal: the faucet
+   * consent gate, then the broadcast hash. Returns the confirmed transaction
+   * hash for the success screen.
+   */
+  async function runClaim(handlers: ClaimRunHandlers): Promise<string> {
+    if (!sdk) throw new Error("GoodDollar SDK is not ready yet.");
+    const receipt = await sdk.claim(
+      async (message) => handlers.confirmFaucet(message),
+      (hash) => handlers.onSubmitted(hash),
+    );
+    return receipt.transactionHash;
   }
 
   if (loading || sdkLoading) {
@@ -129,6 +148,7 @@ function ClaimPanel() {
   }
 
   const status = view?.status ?? "not_whitelisted";
+  const entitlement = view?.entitlement ?? 0n;
   const copy = describeClaimStatus(status);
 
   return (
@@ -147,9 +167,7 @@ function ClaimPanel() {
         ) : status === "can_claim" ? (
           <p className="text-sm">
             You can claim{" "}
-            <span className="font-semibold">
-              {formatUnits(view?.entitlement ?? 0n)} G$
-            </span>{" "}
+            <span className="font-semibold">{formatUnits(entitlement)} G$</span>{" "}
             right now.
           </p>
         ) : (
@@ -161,30 +179,16 @@ function ClaimPanel() {
           </p>
         )}
 
-        {confirmedTx ? (
-          <p className="text-sm text-primary">
-            Claimed.{" "}
-            <a
-              className="underline underline-offset-4"
-              href={celoTxUrl(confirmedTx)}
-              target="_blank"
-              rel="noreferrer"
-            >
-              View transaction
-            </a>
-          </p>
-        ) : null}
-
         {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
         <div className="flex flex-wrap gap-2">
           <Button
-            onClick={claim}
-            disabled={claiming || status !== "can_claim" || !sdk}
+            onClick={() => setModalOpen(true)}
+            disabled={status === "can_claim" ? !sdk : false}
           >
-            {claiming ? "Check your wallet…" : "Claim G$"}
+            {status === "can_claim" ? `Claim ${formatUnits(entitlement)} G$` : "Open claim"}
           </Button>
-          <Button variant="ghost" onClick={() => void refresh()} disabled={claiming}>
+          <Button variant="ghost" onClick={() => void refresh()}>
             Refresh
           </Button>
         </div>
@@ -194,6 +198,20 @@ function ClaimPanel() {
           ). Good Square never holds your funds.
         </p>
       </CardContent>
+
+      <ClaimModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        status={status}
+        entitlement={entitlement}
+        nextClaimTime={view?.nextClaimTime}
+        address={address}
+        chainSupported={chainSupported}
+        switchingChain={switchingChain}
+        onSwitchChain={onSwitchChain}
+        runClaim={runClaim}
+        onClaimed={() => void refresh()}
+      />
     </Card>
   );
 }

@@ -131,6 +131,12 @@ Square ID page (`/profile`).
   verification flow (`generateFVLink`). Verification stays on GoodDollar.
 - **Wallet linking.** A verified citizen can link secondary wallets
   (`connectAccount`) so they share one identity and one UBI claim.
+- **Two-signature claim flow.** Claiming can require up to two mainnet
+  transactions: a faucet top-up for gas, then the claim itself. A modal walks the
+  user through both, showing "Step 1 of 2" then "Step 2 of 2" and never hiding
+  the second signature. The step logic lives in `src/lib/gooddollar/claim-flow.ts`
+  (pure, tested in `tests/claim-flow.test.ts`); the modal is
+  `src/components/gooddollar/claim-modal.tsx`.
 - **Read-only status endpoint.** `GET /api/v1/gooddollar/identity?address=…`
   returns whether an address is a verified citizen and its root identity.
 
@@ -348,14 +354,14 @@ src/
   components/
     community/           # cards, create form, join/leave
     developer/           # API key and webhook managers
-    gooddollar/          # GoodDollar identity panel and G$ claim card
+    gooddollar/          # GoodDollar identity panel, claim card, claim modal
     quest/               # quest card, create form, submit panel, moderation queue
     reputation/          # leaderboard and EXP badges
     governance/          # proposal card, create form, vote panel
     treasury/            # balances, treasury manager
     pay/                 # pay button, payment-request form, pay view
     profile/             # Square ID form
-    ui/                  # accessible primitives (button, card, input, …)
+    ui/                  # accessible primitives (button, card, input, dialog, …)
     wallet/              # connect wallet button
   lib/
     api/                 # response helpers
@@ -367,7 +373,7 @@ src/
     treasury/            # token registry, amounts, verification, spending, service
     pay/                 # payment status rules + service
     developer/           # API keys, rate limiting, webhooks, delivery queue
-    gooddollar/          # GoodDollar config, read-only identity lookup
+    gooddollar/          # GoodDollar config, read-only identity lookup, claim flow
     supabase/            # browser, server, service-role, middleware clients
     validation/          # zod schemas
     wagmi/               # Celo chain config + provider
@@ -397,7 +403,8 @@ npm test        # unit tests (node:test)
 - **Phase 5 — Developer ecosystem (this release):** API keys, rate limiting,
   webhooks, a TypeScript SDK, public documentation, and runnable examples.
 - **GoodDollar integration (this release):** optional citizen verification and
-  daily G$ UBI claim on Square ID, Celo mainnet only.
+  daily G$ UBI claim on Square ID, Celo mainnet only. The claim runs in a modal
+  that walks the two-signature (faucet then claim) flow.
 
 ## License
 

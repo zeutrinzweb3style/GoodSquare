@@ -1,0 +1,667 @@
+"use client";
+
+import { useEffect, useReducer, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  CheckCircle2,
+  Clock,
+  ExternalLink,
+  Loader2,
+  ShieldCheck,
+  Wallet,
+  XCircle,
+} from "lucide-react";
+import { useIdentitySDK } from "@goodsdks/react-hooks";
+import { Button } from "@/components/ui/button";
+import { Dialog } from "@/components/ui/dialog";
+import { cn, shortenAddress } from "@/lib/utils";
+import {
+  GOODDOLLAR_CELO_CHAIN_ID,
+  GOODDOLLAR_ENV,
+  celoTxUrl,
+  formatUnits,
+} from "@/lib/gooddollar/config";
+import type { ClaimStatus } from "@/lib/gooddollar/config";
+import {
+  claimFlowReducer,
+  claimStepInfo,
+  formatCountdown,
+  initialClaimFlow,
+  msUntil,
+  resolveClaimView,
+} from "@/lib/gooddollar/claim-flow";
+import type { ClaimViewKind } from "@/lib/gooddollar/claim-flow";
+
+/**
+ * Hooks the modal hands to the SDK claim runner. The runner must call
+ * `confirmFaucet` (and await it) before any top-up, and `onSubmitted` once the
+ * claim transaction is broadcast.
+ */
+export interface ClaimRunHandlers {
+  /** Ask the user to approve the (possible) top-up. Rejects if they decline. */
+  confirmFaucet: (message: string) => Promise<void>;
+  onSubmitted: (hash: string) => void;
+}
+
+/** Thrown internally when the user declines the faucet prompt. */
+class ClaimDeclined extends Error {
+  constructor() {
+    super("declined");
+    this.name = "ClaimDeclined";
+  }
+}
+
+export interface ClaimModalProps {
+  open: boolean;
+  onClose: () => void;
+  status: ClaimStatus;
+  entitlement: bigint;
+  nextClaimTime?: Date;
+  address: string;
+  chainSupported: boolean;
+  switchingChain: boolean;
+  onSwitchChain: () => void;
+  /** Drives the SDK claim; must invoke the handlers it is given. */
+  runClaim: (handlers: ClaimRunHandlers) => Promise<string>;
+  /** Called once a claim is confirmed so the parent can refresh its status. */
+  onClaimed: () => void;
+}
+
+export function ClaimModal({
+  open,
+  onClose,
+  status,
+  entitlement,
+  nextClaimTime,
+  address,
+  chainSupported,
+  switchingChain,
+  onSwitchChain,
+  runClaim,
+  onClaimed,
+}: ClaimModalProps) {
+  const [phase, dispatch] = useReducer(claimFlowReducer, initialClaimFlow);
+  const confirmResolver = useRef<((accepted: boolean) => void) | null>(null);
+  const [now, setNow] = useState(() => Date.now());
+
+  const view = resolveClaimView({ status, chainSupported, phase });
+  const step = claimStepInfo(view);
+
+  // Reset the flow whenever the modal closes so the next open starts clean.
+  useEffect(() => {
+    if (!open) dispatch({ type: "reset" });
+  }, [open]);
+
+  // Tick the countdown only while it is visible.
+  useEffect(() => {
+    if (!open || view !== "already_claimed") return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [open, view]);
+
+  function respondConfirm(accepted: boolean) {
+    const resolve = confirmResolver.current;
+    confirmResolver.current = null;
+    resolve?.(accepted);
+  }
+
+  /**
+   * Closing must respect an in-flight claim. While a transaction is being
+   * prepared or confirmed we ignore close requests, and while we are waiting on
+   * the user's faucet decision we treat the close as a decline so the pending
+   * promise never dangles.
+   */
+  function handleClose() {
+    if (view === "preparing" || view === "submitting") return;
+    if (view === "confirming") respondConfirm(false);
+    onClose();
+  }
+
+  async function startClaim() {
+    dispatch({ type: "start" });
+    try {
+      const hash = await runClaim({
+        confirmFaucet: async (message) => {
+          dispatch({ type: "confirm-required", message });
+          const accepted = await new Promise<boolean>((resolve) => {
+            confirmResolver.current = resolve;
+          });
+          if (!accepted) {
+            dispatch({ type: "confirm-declined" });
+            throw new ClaimDeclined();
+          }
+          dispatch({ type: "confirm-accepted" });
+        },
+        onSubmitted: (txHash) => dispatch({ type: "submitted", hash: txHash }),
+      });
+      dispatch({ type: "succeeded", hash });
+      onClaimed();
+    } catch (error) {
+      if (error instanceof ClaimDeclined) return;
+      dispatch({
+        type: "failed",
+        message: error instanceof Error ? error.message : "Claim failed",
+      });
+    }
+  }
+
+  function retry() {
+    dispatch({ type: "reset" });
+    void startClaim();
+  }
+
+  const amount = `${formatUnits(entitlement)} G$`;
+  const remaining = msUntil(nextClaimTime, now);
+
+  return (
+    <Dialog open={open} onClose={handleClose} labelledBy="gd-claim-title" className="max-w-[420px]">
+      {step ? (
+        <div className="px-5 pt-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Step {step.step} of {step.total} · {step.label}
+          </p>
+          <div className="mt-2 flex gap-1.5">
+            {Array.from({ length: step.total }).map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 flex-1 rounded-full",
+                  i < step.step - 1
+                    ? "bg-primary/40"
+                    : i === step.step - 1
+                      ? "bg-primary"
+                      : "bg-muted",
+                )}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      <div className="flex items-start gap-3 p-5 pb-3">
+        <span
+          className={cn(
+            "grid h-10 w-10 shrink-0 place-items-center rounded-xl",
+            view === "success" && "bg-accent text-accent-foreground",
+            (view === "failed" || view === "declined") &&
+              "bg-destructive/10 text-destructive",
+            (view === "confirming" || view === "wrong_chain" || view === "not_verified") &&
+              "bg-muted text-foreground",
+            (view === "intro" || view === "preparing" || view === "submitting") &&
+              "bg-accent text-accent-foreground",
+            view === "already_claimed" && "bg-muted text-muted-foreground",
+          )}
+        >
+          <HeaderIcon view={view} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 id="gd-claim-title" className="text-base font-semibold tracking-tight">
+            {titleFor(view)}
+          </h2>
+          <p className="mt-0.5 text-sm text-muted-foreground">{subtitleFor(view)}</p>
+        </div>
+        {view !== "preparing" && view !== "submitting" ? (
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-lg border border-border text-muted-foreground hover:bg-muted"
+          >
+            <XCircle className="h-4 w-4" />
+          </button>
+        ) : null}
+      </div>
+
+      <div className="space-y-3 px-5 pb-1">
+        <Body
+          view={view}
+          amount={amount}
+          entitlement={entitlement}
+          address={address}
+          phase={phase}
+          remaining={remaining}
+        />
+      </div>
+
+      <div className="flex gap-2.5 p-5 pt-3">
+        <Footer
+          view={view}
+          amount={amount}
+          switchingChain={switchingChain}
+          onClose={onClose}
+          onStartClaim={startClaim}
+          onRetry={retry}
+          onSwitchChain={onSwitchChain}
+          onConfirm={() => respondConfirm(true)}
+          onDecline={() => respondConfirm(false)}
+        />
+      </div>
+    </Dialog>
+  );
+}
+
+function HeaderIcon({ view }: { view: ClaimViewKind }) {
+  switch (view) {
+    case "success":
+      return <CheckCircle2 className="h-5 w-5" />;
+    case "failed":
+    case "declined":
+      return <XCircle className="h-5 w-5" />;
+    case "confirming":
+    case "wrong_chain":
+    case "not_verified":
+      return <AlertTriangle className="h-5 w-5" />;
+    case "already_claimed":
+      return <Clock className="h-5 w-5" />;
+    case "preparing":
+    case "submitting":
+      return <Loader2 className="h-5 w-5 animate-spin" />;
+    default:
+      return <ShieldCheck className="h-5 w-5" />;
+  }
+}
+
+function titleFor(view: ClaimViewKind): string {
+  switch (view) {
+    case "intro":
+      return "Claim your daily G$";
+    case "confirming":
+      return "One more signature";
+    case "preparing":
+      return "Preparing your claim";
+    case "submitting":
+      return "Claiming your G$";
+    case "success":
+      return "Claimed!";
+    case "declined":
+      return "Top-up cancelled";
+    case "failed":
+      return "Claim didn't go through";
+    case "already_claimed":
+      return "Already claimed today";
+    case "not_verified":
+      return "Verify your identity first";
+    case "wrong_chain":
+      return "Switch to Celo";
+  }
+}
+
+function subtitleFor(view: ClaimViewKind): string {
+  switch (view) {
+    case "intro":
+      return "GoodDollar UBI · Celo mainnet";
+    case "confirming":
+      return "Confirm in your wallet to continue.";
+    case "preparing":
+      return "Check your wallet to approve the next step.";
+    case "submitting":
+      return "Broadcast. Waiting for confirmation on Celo.";
+    case "success":
+      return "Your daily G$ is on its way to your wallet.";
+    case "declined":
+      return "Nothing was claimed and nothing was charged.";
+    case "failed":
+      return "You can safely try again.";
+    case "already_claimed":
+      return "Come back tomorrow — UBI resets daily.";
+    case "not_verified":
+      return "Only verified GoodDollar citizens can claim G$.";
+    case "wrong_chain":
+      return "GoodDollar runs on Celo mainnet only — there is no testnet.";
+  }
+}
+
+function Body({
+  view,
+  amount,
+  entitlement,
+  address,
+  phase,
+  remaining,
+}: {
+  view: ClaimViewKind;
+  amount: string;
+  entitlement: bigint;
+  address: string;
+  phase: ReturnType<typeof claimFlowReducer>;
+  remaining: number;
+}) {
+  switch (view) {
+    case "intro":
+      return (
+        <>
+          <div className="text-center">
+            <p className="text-4xl font-bold tracking-tight">
+              {formatUnits(entitlement)}
+              <span className="ml-2 text-base font-semibold text-muted-foreground">G$</span>
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Available to claim right now
+            </p>
+          </div>
+          <KeyValue
+            rows={[
+              ["Wallet", <span key="w" className="font-mono">{shortenAddress(address, 6)}</span>],
+              ["Identity", "Verified citizen"],
+              ["Network", `Celo · ${GOODDOLLAR_CELO_CHAIN_ID}`],
+            ]}
+          />
+          <Note tone="ok">
+            Claimed straight to your wallet. Good Square never holds your funds.
+          </Note>
+        </>
+      );
+
+    case "confirming":
+      return (
+        <>
+          <Note tone="warn">
+            {(phase.kind === "confirming" ? phase.message : "") ||
+              "GoodDollar may need a small top-up first if your wallet is low on gas for the claim."}
+          </Note>
+          <KeyValue
+            rows={[
+              ["Transaction", "Top-up (if needed) then claim"],
+              ["Signer", "Your wallet"],
+            ]}
+          />
+        </>
+      );
+
+    case "preparing":
+      return (
+        <Note>
+          Waiting for your wallet to sign… This usually takes a few seconds.
+        </Note>
+      );
+
+    case "submitting":
+      return (
+        <>
+          {phase.kind === "submitting" ? (
+            <TxLink hash={phase.hash} label="Claim transaction" />
+          ) : null}
+          <Note>Your wallet signed it. Confirming on Celo now — please wait.</Note>
+        </>
+      );
+
+    case "success":
+      return (
+        <>
+          <div className="text-center">
+            <p className="text-4xl font-bold tracking-tight text-primary">+{amount}</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Next claim opens in {formatCountdown(remaining)}
+            </p>
+          </div>
+          {phase.kind === "success" ? <TxLink hash={phase.hash} label="Claim transaction" /> : null}
+        </>
+      );
+
+    case "declined":
+      return (
+        <Note tone="bad">
+          You declined the top-up, so the claim did not run. Try again, or add a
+          little G$ or CELO for gas yourself and skip the top-up.
+        </Note>
+      );
+
+    case "failed":
+      return (
+        <>
+          <Note tone="bad">
+            {phase.kind === "failed"
+              ? phase.message
+              : "The claim could not be completed."}
+          </Note>
+          {phase.kind === "failed" && phase.hash ? (
+            <TxLink hash={phase.hash} label="Top-up transaction" />
+          ) : null}
+        </>
+      );
+
+    case "already_claimed":
+      return (
+        <>
+          <div className="text-center">
+            <p className="text-4xl font-bold tracking-tight tabular-nums">
+              {formatCountdown(remaining)}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Time until your next claim
+            </p>
+          </div>
+        </>
+      );
+
+    case "not_verified":
+      return (
+        <>
+          <Note tone="warn">
+            Verification is a one-time face check on GoodDollar. It stays on
+            GoodDollar — Good Square never sees it.
+          </Note>
+          <KeyValue rows={[["Status", "Not verified"]]} />
+        </>
+      );
+
+    case "wrong_chain":
+      return (
+        <KeyValue
+          rows={[
+            ["Your network", "Not Celo mainnet"],
+            ["Required", `Celo · ${GOODDOLLAR_CELO_CHAIN_ID}`],
+          ]}
+        />
+      );
+  }
+}
+
+function Footer({
+  view,
+  amount,
+  switchingChain,
+  onClose,
+  onStartClaim,
+  onRetry,
+  onSwitchChain,
+  onConfirm,
+  onDecline,
+}: {
+  view: ClaimViewKind;
+  amount: string;
+  switchingChain: boolean;
+  onClose: () => void;
+  onStartClaim: () => void;
+  onRetry: () => void;
+  onSwitchChain: () => void;
+  onConfirm: () => void;
+  onDecline: () => void;
+}) {
+  switch (view) {
+    case "intro":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Not now
+          </Button>
+          <Button className="flex-1" onClick={onStartClaim}>
+            Claim {amount}
+          </Button>
+        </>
+      );
+
+    case "confirming":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onDecline}>
+            Cancel
+          </Button>
+          <Button className="flex-1" onClick={onConfirm}>
+            Continue <ArrowRight className="h-4 w-4" />
+          </Button>
+        </>
+      );
+
+    case "preparing":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" disabled>
+            Cancel
+          </Button>
+          <Button className="flex-1" disabled>
+            <Loader2 className="h-4 w-4 animate-spin" /> Waiting…
+          </Button>
+        </>
+      );
+
+    case "submitting":
+      return (
+        <Button className="flex-1" disabled>
+          <Loader2 className="h-4 w-4 animate-spin" /> Confirming…
+        </Button>
+      );
+
+    case "success":
+      return (
+        <Button className="flex-1" onClick={onClose}>
+          Done
+        </Button>
+      );
+
+    case "declined":
+    case "failed":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="flex-1" onClick={onRetry}>
+            Try again
+          </Button>
+        </>
+      );
+
+    case "already_claimed":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Close
+          </Button>
+          <Button className="flex-1" disabled>
+            Claim G$
+          </Button>
+        </>
+      );
+
+    case "not_verified":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Not now
+          </Button>
+          <VerifyButton />
+        </>
+      );
+
+    case "wrong_chain":
+      return (
+        <>
+          <Button variant="outline" className="flex-1" onClick={onClose}>
+            Not now
+          </Button>
+          <Button className="flex-1" onClick={onSwitchChain} disabled={switchingChain}>
+            {switchingChain ? "Switching…" : "Switch network"}
+          </Button>
+        </>
+      );
+  }
+}
+
+function VerifyButton() {
+  const { sdk } = useIdentitySDK(GOODDOLLAR_ENV);
+  const [busy, setBusy] = useState(false);
+
+  async function verify() {
+    if (!sdk) return;
+    setBusy(true);
+    try {
+      const link = await sdk.generateFVLink(
+        false,
+        window.location.href,
+        GOODDOLLAR_CELO_CHAIN_ID,
+      );
+      window.location.href = link;
+    } catch {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button className="flex-1" onClick={verify} disabled={!sdk || busy}>
+      {busy ? "Opening…" : "Verify with GoodID"}
+      <ExternalLink className="h-4 w-4" />
+    </Button>
+  );
+}
+
+function KeyValue({ rows }: { rows: [string, ReactNode][] }) {
+  return (
+    <dl className="overflow-hidden rounded-xl border border-border">
+      {rows.map(([key, value], i) => (
+        <div
+          key={key}
+          className={cn(
+            "flex items-center justify-between gap-3 px-3.5 py-2.5 text-sm",
+            i > 0 && "border-t border-border",
+          )}
+        >
+          <dt className="text-muted-foreground">{key}</dt>
+          <dd className="font-medium">{value}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+function Note({
+  tone = "muted",
+  children,
+}: {
+  tone?: "muted" | "ok" | "warn" | "bad";
+  children: ReactNode;
+}) {
+  return (
+    <p
+      className={cn(
+        "rounded-xl border px-3.5 py-2.5 text-sm",
+        tone === "muted" && "border-border bg-muted text-secondary-foreground",
+        tone === "ok" && "border-primary/20 bg-accent text-accent-foreground",
+        tone === "warn" && "border-amber-300/60 bg-amber-50 text-amber-900",
+        tone === "bad" && "border-destructive/25 bg-destructive/5 text-destructive",
+      )}
+    >
+      {children}
+    </p>
+  );
+}
+
+function TxLink({ hash, label }: { hash: string; label: string }) {
+  return (
+    <div className="flex items-center gap-2 rounded-xl border border-border bg-muted px-3.5 py-2.5 text-sm">
+      <Wallet className="h-4 w-4 shrink-0 text-muted-foreground" />
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-mono text-xs">{shortenAddress(hash, 4)}</span>
+      <a
+        href={celoTxUrl(hash)}
+        target="_blank"
+        rel="noreferrer"
+        className="ml-auto inline-flex items-center gap-1 font-medium text-primary hover:underline"
+      >
+        Celoscan <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+}

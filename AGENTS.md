@@ -221,6 +221,13 @@ and Phase 5 added the developer surface (API keys, rate limiting, webhooks, SDK)
 - **Pure helpers stay I/O-free.** `src/lib/gooddollar/config.ts` holds chain
   guards, address maps, and `formatUnits`; keep it free of runtime imports so
   `tests/gooddollar.test.ts` can exercise it directly.
+- **The claim flow is a pure reducer.** `src/lib/gooddollar/claim-flow.ts` owns
+  the phases, view resolution, and countdown formatting for the two-signature
+  claim modal. Keep it free of SDK and React imports so
+  `tests/claim-flow.test.ts` can exercise it directly. The SDK's
+  `onConfirmFaucetTx` callback is the only pre-flight consent gate and always
+  fires once, so the modal must always ask before a possible top-up; never
+  replace it with `window.confirm`.
 - **The status endpoint is read-only and public.** `GET
   /api/v1/gooddollar/identity` returns identity state only; it never writes.
 
