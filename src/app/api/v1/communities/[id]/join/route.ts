@@ -16,6 +16,7 @@ import {
   serverError,
   unauthorized,
 } from "@/lib/api/response";
+import { checkVerifiedHuman } from "@/lib/gooddollar/gate";
 
 /** Join a public community as a member. */
 export async function POST(
@@ -39,6 +40,17 @@ export async function POST(
     }
 
     const address = normalizeAddress(session.sub);
+
+    // Verified-humans-only communities gate membership on GoodDollar identity.
+    if (community.verified_only) {
+      const check = await checkVerifiedHuman(address);
+      if (!check.verified) {
+        return forbidden(
+          check.reason ?? "Verify your GoodDollar identity to join this community",
+        );
+      }
+    }
+
     const existing = await getMembership(community.id, address);
     if (existing) {
       return conflict("You are already a member of this community");

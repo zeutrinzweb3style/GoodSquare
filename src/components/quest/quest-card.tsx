@@ -40,6 +40,9 @@ export function QuestCard({
         </p>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <Badge variant="outline">{quest.category}</Badge>
+          {quest.verified_only ? (
+            <Badge variant="outline">Verified humans</Badge>
+          ) : null}
           <span>
             {quest.exp_reward > 0 ? `+${quest.exp_reward} EXP` : "No EXP reward"}
           </span>

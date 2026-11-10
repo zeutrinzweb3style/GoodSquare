@@ -19,6 +19,7 @@ import {
   unauthorized,
   validationError,
 } from "@/lib/api/response";
+import { checkVerifiedHuman } from "@/lib/gooddollar/gate";
 
 /**
  * List submissions for a quest. Members see only their own; moderators and
@@ -116,6 +117,16 @@ export async function POST(
     }
     if (quest.deadline && new Date(quest.deadline).getTime() < Date.now()) {
       return forbidden("The deadline for this quest has passed");
+    }
+
+    // Verified-humans-only quests gate submission on GoodDollar identity.
+    if (quest.verified_only) {
+      const check = await checkVerifiedHuman(session.sub);
+      if (!check.verified) {
+        return forbidden(
+          check.reason ?? "Verify your GoodDollar identity to submit this quest",
+        );
+      }
     }
 
     const existing = await getSubmission(quest.id, session.sub);

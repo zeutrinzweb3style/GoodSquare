@@ -128,7 +128,21 @@ test("payableTokens excludes undeployed tokens and keeps native first", () => {
   const sepolia = payableTokens(SEPOLIA);
   assert.ok(sepolia.every((token) => token.native || token.contract));
   assert.equal(sepolia.some((token) => token.id === "USDT"), false);
-  assert.equal(listTokens(SEPOLIA).length, 4);
+  assert.equal(listTokens(SEPOLIA).length, 5);
+});
+
+test("G$ is payable on mainnet and absent on Sepolia", () => {
+  const gdollar = getToken(MAINNET, "G$")!;
+  assert.equal(gdollar.contract, "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A");
+  assert.equal(gdollar.decimals, 18);
+  assert.equal(gdollar.native, false);
+  assert.equal(isPayable(MAINNET, "G$"), true);
+  assert.ok(payableTokens(MAINNET).some((token) => token.id === "G$"));
+
+  // GoodDollar has no Celo Sepolia deployment.
+  assert.equal(getToken(SEPOLIA, "G$")?.contract, null);
+  assert.equal(isPayable(SEPOLIA, "G$"), false);
+  assert.equal(payableTokens(SEPOLIA).some((token) => token.id === "G$"), false);
 });
 
 // --- verification ------------------------------------------------------------

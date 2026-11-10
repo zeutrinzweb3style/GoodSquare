@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     return validationError(parsed.error);
   }
 
-  const { name, slug, description, visibility } = parsed.data;
+  const { name, slug, description, visibility, verifiedOnly } = parsed.data;
   const supabase = createServiceRoleClient();
 
   const { data: community, error } = await supabase
@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       slug,
       description: description || null,
       visibility,
+      verified_only: verifiedOnly,
       creator_address: normalizeAddress(session.sub),
     })
     .select("*")

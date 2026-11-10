@@ -16,12 +16,17 @@
  * and lives at the same contract address. It is kept under the `cUSD` id with
  * the current symbol so existing references keep working.
  *
+ * G$ (GoodDollar) is the UBI token. Its Celo mainnet address was read from the
+ * official GoodDollar docs (docs.gooddollar.org, "How to integrate the G$
+ * token", production Celo). GoodDollar has no Celo Sepolia deployment, so G$ is
+ * listed there with a null contract and is filtered out of `payableTokens`.
+ *
  * This registry is intentionally static: a token can never be selected from
  * client input, which removes a class of spoofing attacks. Adding a token means
  * editing this file after verifying it.
  */
 
-export type TokenSymbol = "CELO" | "cUSD" | "USDC" | "USDT";
+export type TokenSymbol = "CELO" | "cUSD" | "USDC" | "USDT" | "G$";
 
 export interface Token {
   /** Stable identifier used across the app and stored in the database. */
@@ -78,6 +83,15 @@ const MAINNET: Record<TokenSymbol, Token> = {
     native: false,
     note: "Bridged USDT",
   },
+  "G$": {
+    id: "G$",
+    symbol: "G$",
+    name: "GoodDollar",
+    contract: "0x62B8B11039FcfE5aB0C56E502b1C372A3d2a9c7A",
+    decimals: 18,
+    native: false,
+    note: "GoodDollar UBI token",
+  },
 };
 
 const SEPOLIA: Record<TokenSymbol, Token> = {
@@ -117,9 +131,18 @@ const SEPOLIA: Record<TokenSymbol, Token> = {
     native: false,
     note: "Not deployed on Celo Sepolia",
   },
+  "G$": {
+    id: "G$",
+    symbol: "G$",
+    name: "GoodDollar (testnet)",
+    contract: null,
+    decimals: 18,
+    native: false,
+    note: "GoodDollar has no Celo Sepolia deployment",
+  },
 };
 
-export const TOKEN_SYMBOLS: TokenSymbol[] = ["CELO", "cUSD", "USDC", "USDT"];
+export const TOKEN_SYMBOLS: TokenSymbol[] = ["CELO", "cUSD", "USDC", "USDT", "G$"];
 
 const REGISTRIES: Record<number, Record<TokenSymbol, Token>> = {
   42220: MAINNET,

@@ -27,6 +27,7 @@ export function CreateCommunityForm() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [description, setDescription] = useState("");
   const [visibility, setVisibility] = useState<"public" | "private">("public");
+  const [verifiedOnly, setVerifiedOnly] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -57,7 +58,13 @@ export function CreateCommunityForm() {
       const res = await fetch("/api/v1/communities", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, slug, description, visibility }),
+        body: JSON.stringify({
+          name,
+          slug,
+          description,
+          visibility,
+          verifiedOnly,
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -147,6 +154,24 @@ export function CreateCommunityForm() {
               </option>
             </select>
           </div>
+
+          <label className="flex items-start gap-3 rounded-md border border-border p-3 text-sm">
+            <input
+              type="checkbox"
+              checked={verifiedOnly}
+              onChange={(e) => setVerifiedOnly(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">
+                GoodDollar-verified members only
+              </span>
+              <span className="mt-1 block text-muted-foreground">
+                Only wallets verified as GoodDollar citizens may join. Uses the
+                on-chain GoodDollar identity registry.
+              </span>
+            </span>
+          </label>
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
 
