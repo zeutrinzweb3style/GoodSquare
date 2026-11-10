@@ -18,6 +18,36 @@ interface AuthState {
   setProfile: (profile: Profile) => void;
 }
 
+interface AuthResponse {
+  data?: {
+    authenticated?: boolean;
+    address?: string;
+    profile?: Profile | null;
+    message?: string;
+  };
+  error?: { message?: string };
+}
+
+/** Reads auth responses safely when a proxy/server failure has an empty body. */
+async function readAuthResponse(response: Response): Promise<AuthResponse | null> {
+  const text = await response.text();
+  if (!text.trim()) return null;
+  try {
+    return JSON.parse(text) as AuthResponse;
+  } catch {
+    return null;
+  }
+}
+
+function responseError(
+  response: Response,
+  json: AuthResponse | null,
+  fallback: string,
+): Error {
+  const message = json?.error?.message || json?.data?.message;
+  return new Error(message || `${fallback} (HTTP ${response.status})`);
+}
+
 const AuthContext = createContext<AuthState | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -45,7 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const json = await res.json();
+    const json = await readAuthResponse(res);
+    if (!json) {
+      setProfileState(null);
+      return;
+    }
     const session = json?.data;
     if (
       session?.authenticated === true &&
@@ -89,11 +123,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: checksum }),
       });
-      const nonceJson = await nonceRes.json();
+      const nonceJson = await readAuthResponse(nonceRes);
       if (!nonceRes.ok) {
-        throw new Error(nonceJson?.error?.message ?? "Could not start sign-in");
+        throw responseError(nonceRes, nonceJson, "Could not start sign-in");
       }
-      const message: string = nonceJson.data.message;
+      const message = nonceJson?.data?.message;
+      if (!message) {
+        throw responseError(nonceRes, nonceJson, "Could not start sign-in");
+      }
 
       const signature = await signMessageAsync({ message });
 
@@ -102,9 +139,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ address: checksum, message, signature }),
       });
-      const verifyJson = await verifyRes.json();
+      const verifyJson = await readAuthResponse(verifyRes);
       if (!verifyRes.ok) {
-        throw new Error(verifyJson?.error?.message ?? "Sign-in failed");
+        throw responseError(verifyRes, verifyJson, "Sign-in failed");
       }
       await refreshProfile();
     } catch (err) {
