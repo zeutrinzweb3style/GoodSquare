@@ -45,12 +45,26 @@ export function GoodDollarClaim() {
   const { switchChain, isPending: isSwitching } = useSwitchChain();
 
   if (!isConnected || !address) {
-    return null;
+    return (
+      <ClaimAvailabilityCard
+        title="Daily G$ claim"
+        description="Connect your wallet to check your GoodDollar identity and claim eligibility."
+        action="Connect wallet"
+      />
+    );
   }
 
   const chainSupported = isGoodDollarSupportedChain(chainId);
   if (!chainSupported) {
-    return null;
+    return (
+      <ClaimAvailabilityCard
+        title="Daily G$ claim"
+        description="GoodDollar runs on Celo mainnet. Switch networks to check your eligibility and open the claim flow."
+        action={isSwitching ? "Switching to Celo…" : "Switch to Celo"}
+        onAction={() => switchChain({ chainId: celo.id })}
+        disabled={isSwitching}
+      />
+    );
   }
 
   return (
@@ -61,6 +75,40 @@ export function GoodDollarClaim() {
       onSwitchChain={() => switchChain({ chainId: celo.id })}
       key={`${address}:${chainId}`}
     />
+  );
+}
+
+function ClaimAvailabilityCard({
+  title,
+  description,
+  action,
+  onAction,
+  disabled = false,
+}: {
+  title: string;
+  description: string;
+  action: string;
+  onAction?: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <p className="text-sm text-muted-foreground">{description}</p>
+        {onAction ? (
+          <Button onClick={onAction} disabled={disabled}>
+            {action}
+          </Button>
+        ) : (
+          <p className="text-xs font-medium text-muted-foreground">
+            Use the Connect wallet button in the header to continue.
+          </p>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
