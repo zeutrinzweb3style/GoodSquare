@@ -22,11 +22,47 @@ const KNOWN_OPTIONS: Record<string, WalletOption> = {
     name: "WalletConnect",
     description: "Scan a QR code with any mobile wallet",
   },
+  "app.phantom": {
+    id: "app.phantom",
+    name: "Phantom",
+    description: "Connect with the Phantom browser wallet",
+  },
+  "io.metamask": {
+    id: "io.metamask",
+    name: "MetaMask",
+    description: "Connect with the MetaMask browser wallet",
+  },
 };
 
-/** Human-readable label for a connector id, falling back to the raw id. */
-export function walletOptionFor(id: string): WalletOption {
-  return KNOWN_OPTIONS[id] ?? { id, name: id, description: "" };
+/** Human-readable label for a connector id, preferring provider metadata. */
+export function walletOptionFor(id: string, providerName?: string): WalletOption {
+  const known = KNOWN_OPTIONS[id];
+  if (known) return known;
+  const name = providerName?.trim() || id;
+  return { id, name, description: `Connect with ${name}` };
+}
+
+/**
+ * Removes Wagmi's generic injected connector when named EIP-6963 wallets are
+ * available, then puts browser wallets before WalletConnect.
+ */
+export function visibleWalletConnectors<T extends { id: string }>(
+  connectors: readonly T[],
+): T[] {
+  const hasNamedBrowserWallet = connectors.some(
+    (connector) => connector.id !== "injected" && connector.id !== "walletConnect",
+  );
+  const filtered = hasNamedBrowserWallet
+    ? connectors.filter((connector) => connector.id !== "injected")
+    : [...connectors];
+  const priority = (id: string) => {
+    if (id === "io.metamask") return 0;
+    if (id === "app.phantom") return 1;
+    if (id === "injected") return 2;
+    if (id === "walletConnect") return 3;
+    return 4;
+  };
+  return [...filtered].sort((left, right) => priority(left.id) - priority(right.id));
 }
 
 /**

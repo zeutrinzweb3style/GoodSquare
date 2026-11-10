@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-labelledby="title">
+  <title>WalletConnect</title>
+  <rect width="48" height="48" rx="14" fill="#3b99fc"/>
+  <path fill="#fff" d="M13.2 20.3c6-5.8 15.6-5.8 21.6 0l1.2 1.2a1.1 1.1 0 0 1 0 1.6l-2 2a.55.55 0 0 1-.8 0l-1.7-1.6a10.6 10.6 0 0 0-15 0l-1.7 1.6a.55.55 0 0 1-.8 0l-2-2a1.1 1.1 0 0 1 0-1.6l1.2-1.2Zm4.1 8.2 2-2a.55.55 0 0 1 .8 0l1.9 1.8a4.3 4.3 0 0 0 6 0l1.9-1.8a.55.55 0 0 1 .8 0l2 2a.55.55 0 0 1 0 .8l-2 1.9a10.6 10.6 0 0 1-15 0l-2-1.9a.55.55 0 0 1 0-.8Z"/>
+</svg>

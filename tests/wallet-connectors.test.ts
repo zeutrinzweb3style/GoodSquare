@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   describeConnectError,
   hasInjectedProvider,
+  visibleWalletConnectors,
   walletConnectMetadata,
   walletOptionFor,
 } from "../src/lib/wallet/connectors.ts";
@@ -10,13 +11,40 @@ import {
 test("known connectors get a friendly label", () => {
   assert.equal(walletOptionFor("injected").name, "Browser wallet");
   assert.equal(walletOptionFor("walletConnect").name, "WalletConnect");
+  assert.equal(walletOptionFor("app.phantom").name, "Phantom");
+  assert.equal(walletOptionFor("io.metamask").name, "MetaMask");
+  assert.equal(walletOptionFor("custom", "Rainbow").name, "Rainbow");
 });
 
 test("an unknown connector falls back to its id", () => {
   const option = walletOptionFor("someFutureWallet");
   assert.equal(option.id, "someFutureWallet");
   assert.equal(option.name, "someFutureWallet");
-  assert.equal(option.description, "");
+  assert.equal(option.description, "Connect with someFutureWallet");
+});
+
+test("named injected wallets replace the generic injected option", () => {
+  const connectors = visibleWalletConnectors([
+    { id: "injected" },
+    { id: "walletConnect" },
+    { id: "app.phantom" },
+    { id: "io.metamask" },
+  ]);
+  assert.deepEqual(
+    connectors.map((connector) => connector.id),
+    ["io.metamask", "app.phantom", "walletConnect"],
+  );
+});
+
+test("generic injected remains available when no named provider is discovered", () => {
+  const connectors = visibleWalletConnectors([
+    { id: "injected" },
+    { id: "walletConnect" },
+  ]);
+  assert.deepEqual(
+    connectors.map((connector) => connector.id),
+    ["injected", "walletConnect"],
+  );
 });
 
 test("a missing provider is explained with an actionable message", () => {
