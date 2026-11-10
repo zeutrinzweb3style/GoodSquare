@@ -14,6 +14,7 @@ import type { ClaimStatus } from "./config";
 
 export type ClaimFlowPhase =
   | { kind: "idle" }
+  | { kind: "verifying" }
   | { kind: "preparing" }
   | { kind: "confirming"; message: string }
   | { kind: "submitting"; hash: string }
@@ -23,6 +24,8 @@ export type ClaimFlowPhase =
 
 export type ClaimFlowEvent =
   | { type: "start" }
+  | { type: "verify-started" }
+  | { type: "verify-finished" }
   | { type: "confirm-required"; message: string }
   | { type: "confirm-accepted" }
   | { type: "confirm-declined" }
@@ -46,6 +49,14 @@ export function claimFlowReducer(
       return { kind: "idle" };
     case "start":
       return { kind: "preparing" };
+    case "verify-started":
+      if (phase.kind !== "idle") return phase;
+      return { kind: "verifying" };
+    case "verify-finished":
+      // Verification completes (or is abandoned); the caller re-checks the
+      // wallet status, so returning to idle lets the status drive the screen.
+      if (phase.kind !== "verifying") return phase;
+      return { kind: "idle" };
     case "confirm-required":
       if (phase.kind !== "preparing") return phase;
       return { kind: "confirming", message: event.message };
@@ -79,6 +90,7 @@ export type ClaimViewKind =
   | "not_verified"
   | "already_claimed"
   | "intro"
+  | "verifying"
   | "confirming"
   | "preparing"
   | "submitting"
@@ -98,6 +110,8 @@ export function resolveClaimView(input: {
   const { status, chainSupported, phase } = input;
 
   switch (phase.kind) {
+    case "verifying":
+      return "verifying";
     case "confirming":
       return "confirming";
     case "preparing":

@@ -19,6 +19,7 @@ import {
   isGoodDollarSupportedChain,
   unsupportedChainReason,
 } from "@/lib/gooddollar/config";
+import { openVerificationPopup, runInAppVerification } from "@/lib/gooddollar/verify-session";
 import { shortenAddress } from "@/lib/utils";
 
 interface IdentityStatusResponse {
@@ -104,6 +105,7 @@ function VerifiedPanel({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [linking, setLinking] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
   const [targetAddress, setTargetAddress] = useState("");
   const [linkError, setLinkError] = useState<string | null>(null);
@@ -149,16 +151,28 @@ function VerifiedPanel({
 
   async function startVerification() {
     if (!sdk) return;
+    // Open the popup synchronously, inside the click handler, so the browser
+    // treats it as user-initiated and does not block it.
+    const popup = openVerificationPopup();
     setError(null);
+    setVerifying(true);
     try {
-      const link = await sdk.generateFVLink(
-        false,
-        window.location.href,
-        GOODDOLLAR_CELO_CHAIN_ID,
-      );
-      window.location.href = link;
+      const outcome = await runInAppVerification({
+        popup,
+        generateLink: (popupMode, callbackUrl, chainId) =>
+          sdk.generateFVLink(popupMode, callbackUrl, chainId),
+        chainId: GOODDOLLAR_CELO_CHAIN_ID,
+      });
+      if (outcome === "blocked") {
+        setError(
+          "Your browser blocked the verification window. Allow pop-ups for this site and try again.",
+        );
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start verification");
+    } finally {
+      setVerifying(false);
+      await refresh();
     }
   }
 
@@ -258,8 +272,8 @@ function VerifiedPanel({
               {linking ? "Linking…" : "Link another wallet"}
             </Button>
           ) : (
-            <Button onClick={startVerification} disabled={!sdk}>
-              Verify with GoodID
+            <Button onClick={startVerification} disabled={!sdk || verifying}>
+              {verifying ? "Waiting for verification…" : "Verify with GoodID"}
             </Button>
           )}
           <Button variant="ghost" onClick={() => void refresh()}>

@@ -77,6 +77,33 @@ test("reset returns to idle", () => {
   assert.deepEqual(phase, { kind: "idle" });
 });
 
+test("verification runs in place and returns to the status-driven screen", () => {
+  let phase = claimFlowReducer(initialClaimFlow, { type: "verify-started" });
+  assert.deepEqual(phase, { kind: "verifying" });
+  assert.equal(
+    resolveClaimView({ status: "not_whitelisted", chainSupported: true, phase }),
+    "verifying",
+  );
+
+  phase = claimFlowReducer(phase, { type: "verify-finished" });
+  assert.deepEqual(phase, { kind: "idle" });
+  assert.equal(
+    resolveClaimView({ status: "can_claim", chainSupported: true, phase }),
+    "intro",
+  );
+});
+
+test("verification events only apply from their matching phase", () => {
+  // Cannot start verifying while a claim is already preparing.
+  const preparing: ClaimFlowPhase = { kind: "preparing" };
+  assert.deepEqual(claimFlowReducer(preparing, { type: "verify-started" }), preparing);
+  // A stray finish is ignored when we are not verifying.
+  assert.deepEqual(
+    claimFlowReducer(initialClaimFlow, { type: "verify-finished" }),
+    initialClaimFlow,
+  );
+});
+
 test("resolveClaimView prefers an in-flight phase over wallet status", () => {
   assert.equal(
     resolveClaimView({
