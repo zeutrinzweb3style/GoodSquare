@@ -32,6 +32,9 @@ export interface Quest {
   description: string | null;
   status: string;
   exp_reward: number;
+  reward_token_symbol: string | null;
+  /** Human decimal reward per approved submission, in reward_token_symbol units. */
+  reward_amount: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +48,7 @@ export interface QuestSubmission {
   proof_url: string | null;
   proof_text: string | null;
   review_note: string | null;
+  reward_recipient_id: string | null;
   created_at: string;
 }
 

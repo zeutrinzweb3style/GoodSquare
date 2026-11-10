@@ -3,6 +3,7 @@ import { getSession } from "@/lib/auth/session";
 import { getCommunityBySlugOrId, getRole, can } from "@/lib/community/service";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getQuestById } from "@/lib/quest/service";
+import { normalizeQuestReward } from "@/lib/quest/reward";
 import { updateQuestSchema } from "@/lib/validation/schemas";
 import {
   badRequest,
@@ -87,6 +88,19 @@ export async function PATCH(
     if (d.category !== undefined) patch.category = d.category;
     if (d.requirements !== undefined) patch.requirements = d.requirements || null;
     if (d.rewardInfo !== undefined) patch.reward_info = d.rewardInfo || null;
+    if (d.rewardTokenSymbol !== undefined || d.rewardAmount !== undefined) {
+      const reward = normalizeQuestReward(
+        d.rewardTokenSymbol !== undefined
+          ? d.rewardTokenSymbol
+          : quest.reward_token_symbol,
+        d.rewardAmount !== undefined ? d.rewardAmount : quest.reward_amount,
+      );
+      if (!reward.ok) {
+        return badRequest(reward.reason);
+      }
+      patch.reward_token_symbol = reward.value?.token ?? null;
+      patch.reward_amount = reward.value?.amount ?? null;
+    }
     if (d.expReward !== undefined) patch.exp_reward = d.expReward;
     if (d.deadline !== undefined) {
       patch.deadline = d.deadline ? new Date(d.deadline).toISOString() : null;

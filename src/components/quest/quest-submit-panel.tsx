@@ -16,6 +16,7 @@ interface Submission {
   proof_url: string | null;
   proof_text: string | null;
   review_note: string | null;
+  reward_queued?: boolean;
 }
 
 export function QuestSubmitPanel({
@@ -23,11 +24,13 @@ export function QuestSubmitPanel({
   isMember,
   questStatus,
   existing,
+  rewardLabel,
 }: {
   questId: string;
   isMember: boolean;
   questStatus: string;
   existing: Submission | null;
+  rewardLabel?: string | null;
 }) {
   const router = useRouter();
   const { isAuthenticated, isSigningIn, signIn } = useAuth();
@@ -94,6 +97,13 @@ export function QuestSubmitPanel({
           {existing.review_note ? (
             <p className="text-muted-foreground">
               Reviewer note: {existing.review_note}
+            </p>
+          ) : null}
+          {existing.status === "approved" && rewardLabel ? (
+            <p className="rounded-md border border-border bg-muted/40 p-2 text-xs text-muted-foreground">
+              {existing.reward_queued
+                ? `Reward queued: ${rewardLabel} from the community treasury. A treasury signer sends it; you will be notified when it is paid.`
+                : `This quest offers ${rewardLabel}. Ask a community admin if it has not been queued for you.`}
             </p>
           ) : null}
           <p className="text-xs text-muted-foreground">

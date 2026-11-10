@@ -75,6 +75,8 @@ export const createQuestSchema = z.object({
   category: questCategory.default("custom"),
   requirements: z.string().trim().max(1000).optional().or(z.literal("")),
   rewardInfo: z.string().trim().max(500).optional().or(z.literal("")),
+  rewardTokenSymbol: z.string().trim().max(10).optional().or(z.literal("")),
+  rewardAmount: z.string().trim().max(40).optional().or(z.literal("")),
   expReward: z.coerce.number().int().min(0).max(100000).default(0),
   deadline: z
     .string()

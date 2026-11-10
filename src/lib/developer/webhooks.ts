@@ -16,6 +16,7 @@ export const WEBHOOK_EVENTS = [
   "member.joined",
   "quest.submitted",
   "quest.approved",
+  "quest.reward_queued",
   "proposal.created",
   "proposal.closed",
   "vote.cast",

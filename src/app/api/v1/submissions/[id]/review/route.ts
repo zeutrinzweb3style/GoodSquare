@@ -78,6 +78,8 @@ export async function POST(
       submission: result.submission,
       exp_awarded:
         parsed.data.decision === "approved" ? (result.quest?.exp_reward ?? 0) : 0,
+      reward: result.reward,
+      reward_skipped: result.rewardSkipped,
     });
   } catch (error) {
     console.error("review submission error", error);

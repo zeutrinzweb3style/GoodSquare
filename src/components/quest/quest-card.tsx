@@ -48,6 +48,14 @@ export function QuestCard({
               ? `+${quest.exp_reward} EXP`
               : "No EXP reward"}
           </span>
+          {quest.reward_token_symbol && quest.reward_amount ? (
+            <>
+              <span>·</span>
+              <span className="font-medium text-primary">
+                {quest.reward_amount} {quest.reward_token_symbol}
+              </span>
+            </>
+          ) : null}
           <span>·</span>
           <span>
             {quest.submission_count}{" "}
@@ -64,8 +72,9 @@ export function QuestCard({
           ) : null}
         </div>
         <p className="text-xs text-muted-foreground">
-          Approvals award EXP. Token or stablecoin payouts are issued separately
-          by the community from its treasury.
+          {quest.reward_token_symbol && quest.reward_amount
+            ? `Approvals award EXP and queue a ${quest.reward_amount} ${quest.reward_token_symbol} payout for the community treasury to send.`
+            : "Approvals award EXP. Token or stablecoin payouts are issued separately by the community from its treasury."}
         </p>
       </CardContent>
     </Card>

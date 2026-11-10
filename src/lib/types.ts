@@ -58,6 +58,9 @@ export interface Quest {
   category: QuestCategory;
   requirements: string | null;
   reward_info: string | null;
+  reward_token_symbol: string | null;
+  /** Human decimal reward per approved submission, in reward_token_symbol units. */
+  reward_amount: string | null;
   status: QuestStatus;
   deadline: string | null;
   exp_reward: number;
@@ -81,6 +84,7 @@ export interface QuestSubmission {
   reviewed_by: string | null;
   reviewed_at: string | null;
   review_note: string | null;
+  reward_recipient_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -307,6 +311,7 @@ export interface RewardDistribution {
   description: string | null;
   token_symbol: string;
   status: RewardStatus;
+  quest_id: string | null;
   created_by: string;
   activated_at: string | null;
   completed_at: string | null;
